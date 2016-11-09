@@ -1,0 +1,72 @@
+# TurboBuf syntax descriptor.
+# This file describes the besic syntax of the text form of the turbobuf protocol.
+# This protocol is basically:
+#  - A stream of hex digits (represented as one readable character each)
+#  - Arranged into a tree by identifiers and '{', '}'
+#  - With possibility for a special UTF8 plain text content node for real texts
+#
+# As every turbobuf sentence is a tree, parsing is trivial, however we can
+# create further tbnf descriptors to define a subprotocol and then we can
+# check if messages are complying to the subprotocol easily. This is
+# basically a possibility to specify the interface syntax and will be
+# done in the save kind of tbnf as this file is in!
+# Some points about turbo-bnf:
+# -> Identifier names should not clash when defining the language.
+# -> Character classes are defined by '[' and ']'
+# -> Various options are defined by '|'
+# -> Most of basic BNF as you can see...
+# -> Multiplicity:
+#           '<x>*' == [0..*] times the x;
+#           '<x>+' == [1..*] times the x;
+#           '<x>?' == 0 or 1 times the x;
+#           '<x>$N' == exactly N times the x;
+#           '<x>$N+' == exactly N, 2*N, 3*N, ... times the x
+#           '<x>$N*' == exactly 0, N, 2*N, 3*N, ... times the x
+# ESCAPED_UTF8* is the only predefined term here...
+
+# A hexadecimal digit as the basic building block
+hex::=[0..9A..F]
+# Elemental UTF8 string container tree-node
+# Escape character is '\'
+# the followings are escaped: '\', '{', '}'
+msg::=m{<ESCAPED_UTF8*>}
+# Elemental identifier names
+nam::=[a..z][a..z0..9_]*
+
+# A message can have more than one roots - it is  forest
+lang::=<root>*
+# A root can be a message on its own too if necessary.
+root::=<msg>|<node>
+# A tree-node is a name and parenthesed body
+node::=<nam>{<body>}
+# The body first contains possible hex digits, then futher subtrees
+body::=<HEX>*<msg>*
+
+#################
+# TYPE CHECKING #
+#################
+# The above elements can be used in the tbnf desciptor for a given
+# subprotocol interface. Then checks can be run against the forest
+# of a message if its types correspond to a constrained tbnf syntax.
+# In your tbnf decriptor on your own:
+# check::= # define constraints yourself properly in turbo-bnf
+# The above can be parsed easily, if you add this type checking info
+# too, then the system can provide you with more help.
+# Type checking and enchancing can be done in good runtime too!
+#
+# For example:
+# --------------------
+# @include<tbuf.tbnf>
+# start::=<cmd>|<data>
+# cmd::=cmd{<msg><msg>?}
+# data::=d{<d>+}
+# # ad-hoc polymorphism here, for color variants:
+# d::=<msg>|<c_*>
+# # 16-color palette string: c{0321F} for 5 colors
+# c::=c{<hex>+}
+# # 4bit per channel color-string c4{0F000F} for green and blue color pair
+# c4::=c4{<hex>$3+}
+# # 8bit per channel color-string c8{FF0000} for one red color
+# c8::=c8{<hex>$6+}
+# # 8bit per channel color-string with alpha channel
+# c9::=c9{<hex>$8+}
