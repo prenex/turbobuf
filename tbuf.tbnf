@@ -15,13 +15,15 @@
 # -> Character classes are defined by '[' and ']'
 # -> Various options are defined by '|'
 # -> Most of basic BNF as you can see...
-# -> Multiplicity:
+# -> TurboBNF Multiplicity:
+#           '<x>' == Exactly 1 times the x;
+#           '<x>?' == 0 or 1 times the x;
 #           '<x>*' == [0..*] times the x;
 #           '<x>+' == [1..*] times the x;
-#           '<x>?' == 0 or 1 times the x;
-#           '<x>$N' == exactly N times the x;
-#           '<x>$N+' == exactly N, 2*N, 3*N, ... times the x
-#           '<x>$N*' == exactly 0, N, 2*N, 3*N, ... times the x
+#           '<x>*N' == exactly N times the x;
+#           '<x>*N?' == exactly N or zero times the x;
+#           '<x>*N*' == exactly 0, N, 2*N, 3*N, ... times the x
+#           '<x>*N+' == exactly N, 2*N, 3*N, ... times the x
 # ESCAPED_UTF8* is the only predefined term here...
 
 # A hexadecimal digit as the basic building block
@@ -29,7 +31,7 @@ hex::=[0..9A..F]
 # Elemental UTF8 string container tree-node
 # Escape character is '\'
 # the followings are escaped: '\', '{', '}'
-msg::=m{<ESCAPED_UTF8*>}
+msg::=${<ESCAPED_UTF8*>}
 # Elemental identifier names
 nam::=[a..z][a..z0..9_]*
 
