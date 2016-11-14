@@ -1,5 +1,5 @@
 # TurboBuf syntax descriptor.
-# This file describes the besic syntax of the text form of the turbobuf protocol.
+# This file describes the basic syntax of the text form of the turbobuf protocol.
 # This protocol is basically:
 #  - A stream of hex digits (represented as one readable character each)
 #  - Arranged into a tree by identifiers and '{', '}'
