@@ -56,6 +56,12 @@ body::=<HEX>*<msg>*
 # too, then the system can provide you with more help.
 # Type checking and enchancing can be done in good runtime too!
 #
+# You can use a simple form of inheritance with '_': As you can
+# see the system supports subclassing in that sense that a sub-
+# class need to contain all possible trees as its parents, and
+# of course possibly add more as a suffix in the end! This works
+# for both the query language and the type checking system!
+#
 # For example:
 # --------------------
 # @include<tbuf.tbnf>
@@ -66,9 +72,19 @@ body::=<HEX>*<msg>*
 # d::=<msg>|<c_*>
 # # 16-color palette string: c{0321F} for 5 colors
 # c::=c{<hex>+}
-# # 4bit per channel color-string c4{0F000F} for green and blue color pair
-# c4::=c4{<hex>$3+}
-# # 8bit per channel color-string c8{FF0000} for one red color
-# c8::=c8{<hex>$6+}
+# # 4bit per channel color-string c_4{0F000F} for green and blue color pair
+# c_4::=c_4{<hex>$3+}
+# # 8bit per channel color-string c_8{FF0000} for one red color
+# c_8::=c_8{<hex>$6+}
 # # 8bit per channel color-string with alpha channel
-# c9::=c9{<hex>$8+}
+# c_9::=c_9{<hex>$8+}
+
+################
+# TREE-QUERIES #
+################
+# There will be a tree-query language for the same system. It is a little bit like jquery or xpath, but much more lightweight.
+# Some example queries:
+# * "to/data/lcd" - descend into node to, then the first data node and then the first lcd node.
+# * "to/c_@3" - descend into the node "to" and find the forth subtree node of the c_ class. That is c, c_subcls1, c_subcls1_subcls2, ...
+# * "to/data@1/lcd@0" - descend into the node to, then the second data node and its first lcd node
+# * "data/color_" - return the first element that is a color
