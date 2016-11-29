@@ -35,14 +35,14 @@ msg::=${<ESCAPED_UTF8*>}
 # Elemental identifier names
 nam::=[a..z][a..z0..9_]*
 
-# A message can have more than one roots - it is  forest
-lang::=<root>*
+# A message is the same as the body of one node...
+lang::=<body>
 # A root can be a message on its own too if necessary.
 root::=<msg>|<node>
 # A tree-node is a name and parenthesed body
 node::=<nam>{<body>}
 # The body first contains possible hex digits, then futher subtrees
-body::=<HEX>*<msg>*
+body::=<hex>*<root>*
 
 #################
 # TYPE CHECKING #
