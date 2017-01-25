@@ -1,15 +1,32 @@
-// Various little experiments
+// Small test program for turbo-buf
 // g++ --std=c++14 test.cpp -o test.out
 
 #include<iostream>
 #include<cstdint>
+#include<cstdio>
 
 #include"tbuf.h"
 
-int main(){
-	// 4 bytes - enough for all the unicode!!!
-	std::cout << "sizeof(wchar_t): " << sizeof(wchar_t) << std::endl;
-	std::cout << "sizeof(uint8_t): " << sizeof(uint8_t) << std::endl;
+void testFileInHandler();
 
+int main(){
+	// Various tests
+	testFileInHandler();
+
+	// Exit
 	return 0;
+}
+
+void testFileInHandler(){
+	printf("Trying to read from in.txt...\n");
+	// Read data from input
+	const char* inputFile = "in.txt";
+	tbuf::FastInput fin(inputFile);
+
+	printf("...file opened...\n");
+	char data = fin.grabCurr();
+	// Use data
+	printf("...FileInHandler testing result(in.txt): %c\n", data);
+
+	// TODO: Test "real" functionality
 }
