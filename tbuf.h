@@ -62,12 +62,14 @@ public:
  * Defines possible node kinds
  */
 enum NodeKind {
+	/** An empty node indicating we cannot read anything */
+	EMPTY = 0,
 	/** The root-node - it is a special normal node */
-	ROOT = 0,
+	ROOT = 1,
 	/** Just a normal node */
-	NORM = 1,
+	NORM = 2,
 	/** Text-containing ${str} nodes */
-	TEXT = 2,
+	TEXT = 3,
 };
 
 /**
@@ -103,6 +105,12 @@ public:
 	std::vector<Node> children;
 };
 
+enum class ParseState {
+	WAIT_HEX_OR_NODE,
+	STRING,
+
+};
+
 template<class InputSubClass>
 class Tree {
 public:
@@ -115,25 +123,37 @@ public:
 	/**
 	 * Create tree by parsing input. Takes ownership of input so that we can parse with optimizations
 	 */
-	Tree(std::unique_ptr<InputSubClass> input) {
+	Tree(InputSubClass &input) {
 		// These are only here to ensure type safety
 		// in our case of template usage...
 		fio::Input *testSubClassing = new InputSubClass();
 		delete testSubClassing;	// Should be fast!
 
-		// TODO: Parse
-
+		// Parse
+		
 		// Check if we have any input to parse
 		if(input.grabCurr() == EOF) {
 			// Empty input file, return empty root
-			Node theRoot = {NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
-			root = std::move(theRoot);
+			root = {NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
 		} else {
+			// TODO: properly parse
+			Hexes hexes;
 			// We have something to parse
+			if(isHexCharacter(input.grabCurr())) {
+				// Parse hexes
+				hexes = parseHexes(input);
+			}
 		}
 	}
 private:
-	std::unique_ptr<InputSubClass> source;
+	Hexes parseHexes(InputSubClass &input) {
+		void* hexSeam = input.markSeam();
+		while(isHexCharacter(input.grabCurr())) {
+			input.advance();
+		}
+		fio::LenString digits = input.grabFromSeamToLast();
+		return Hexes { digits };
+	}
 };
 
 } // tbuf namespace ends here
