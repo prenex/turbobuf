@@ -6,6 +6,7 @@
 #include<cstdio>
 
 #include"tbuf.h"
+#include"fio.h"
 
 void testFileInHandler();
 
@@ -21,7 +22,7 @@ void testFileInHandler(){
 	printf("Trying to read from in.txt...\n");
 	// Read data from input
 	const char* inputFile = "in.txt";
-	tbuf::FastInput fin(inputFile);
+	fio::FastInput fin(inputFile);
 
 	printf("...file opened...\n");
 	char data = fin.grabCurr();
