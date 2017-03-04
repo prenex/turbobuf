@@ -50,7 +50,7 @@ public:
 	/** Tells if a character is among ['0'..'9'] or ['A'..'F'] */
 	inline bool isHexCharacter(char c) {
 		// TODO: check if there is a faster way for ascii using bit hackz...
-		if(('A' <= hex && hex <= 'F') || ('0' <= hex && hex <= '9')) {
+		if(('A' <= c && c <= 'F') || ('0' <= c && c <= '9')) {
 			return true;
 		} else {
 			return false;
@@ -71,7 +71,7 @@ enum NodeKind {
 };
 
 /**
- * The generic turbo-buf tree-node
+ * The generic turbo-buf tree-node. Do not cache the values that are owned by the tree to avoid shooting your leg!
  */
 class Node {
 public:
@@ -92,6 +92,13 @@ public:
 	 * - MEMORY IS OWNED BY THE TREE!
 	 */
 	char *text;
+
+	/**
+	 * Points to our parent - can be nullptr for implicit root nodes
+	 * - MEMORY IS OWNED BY THE TREE!
+	 */
+	Node* parent;
+
 	/** The child nodes (if any) */
 	std::vector<Node> children;
 };
@@ -100,7 +107,7 @@ template<class InputSubClass>
 class Tree {
 public:
 	/** Name for implicit root nodes - your root node might get named differently if it is not top level! */
-	const char *rootNodeName = "root";
+	const char *rootNodeName = "/";	// This name is special as it can be '/' only for the root - see tbnf description!
 
 	/** The root node for this tree */
 	Node root;
@@ -119,7 +126,8 @@ public:
 		// Check if we have any input to parse
 		if(input.grabCurr() == EOF) {
 			// Empty input file, return empty root
-			return Node { NodeKind.ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, std::vector<Node>()};
+			Node theRoot = {NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
+			root = std::move(theRoot);
 		} else {
 			// We have something to parse
 		}
