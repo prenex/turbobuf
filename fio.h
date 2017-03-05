@@ -200,7 +200,7 @@ public:
 
 	inline LenString grabFromSeamToLast(void* seamHandle) {
 		return LenString {
-			(head > (char*)seamHandle) ? (unsigned int)(head - (char*)seamHandle) : 0,
+			((seamHandle != nullptr) && (head > (char*)seamHandle)) ? (unsigned int)(head - (char*)seamHandle) : 0,
 			(char*)seamHandle
 		};
 	}
