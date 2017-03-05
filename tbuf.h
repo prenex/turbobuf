@@ -8,6 +8,11 @@
 
 namespace tbuf {
 
+/** The special tree-node name that contains string-data */
+const char SYM_STRING_NODE = '$';
+const char SYM_OPEN_NODE = '{';
+const char SYM_CLOSE_NODE = '}';
+
 /** Hex-data stream class */
 class Hexes {
 public:
@@ -105,12 +110,6 @@ public:
 	std::vector<Node> children;
 };
 
-enum class ParseState {
-	WAIT_HEX_OR_NODE,
-	STRING,
-
-};
-
 template<class InputSubClass>
 class Tree {
 public:
@@ -137,22 +136,67 @@ public:
 			root = {NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
 		} else {
 			// TODO: properly parse
-			Hexes hexes;
-			// We have something to parse
-			if(isHexCharacter(input.grabCurr())) {
-				// Parse hexes
-				hexes = parseHexes(input);
-			}
+			// Parse hexes for the root node
+			Hexes rootHexes = parseHexes(input);
+			// Create the root node with empty child lists
+			root = Node {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, std::vector<Node>()};
+			// Fill-in the children while parsing nodes with tree-walking
+			parseNodes(input, root);
 		}
 	}
 private:
-	Hexes parseHexes(InputSubClass &input) {
-		void* hexSeam = input.markSeam();
-		while(isHexCharacter(input.grabCurr())) {
+	/**
+	 * Advances input until it is a hex characted and parse.
+	 * The current of input will point after the first non-hex character after this operation...
+	 */
+	inline Hexes parseHexes(const InputSubClass &input) {
+		if(!isHexCharacter(input.grabCurr())) {
+			// No hexes at current position
+			return Hexes {{0, nullptr}};
+		} else {
+			// Hexes at current position
+			void* hexSeam = input.markSeam();
+			while(isHexCharacter(input.grabCurr())) {
+				input.advance();
+			}
+			fio::LenString digits = input.grabFromSeamToLast();
+			return Hexes { digits };
+		}
+	}
+
+	/** Parse all child nodes of the root after parsing hexes of root */
+	inline void parseNodes(const InputSubClass &input, const Node &parent){
+		// Parse from the very start point after the hexes of the root!
+		// (Non-recursive tree-walking in a depth first approach)
+		Node* currentParent = &parent;
+		while(nullptr != (currentParent = parseNode(input, currentParent)));
+	}
+
+	/**
+	 * Parse one node and put it as the child node of the referred parent.
+	 * returns the pointer to the new parent (we do a depth first tree-walking) or nullptr if we reached EOF!
+	 * The new parent can be the child of the parent if we can go deeper, or the parent if we keep the level or
+	 * the parent of the parent if we see that have gotten the parents closing parentheses...
+	 */
+	inline Node* parseNode(const InputSubClass &input, Node *parent) {
+		// TODO: Try to parse a node which will be saved into the parent
+		if(input.grabCurr() == EOF) {
+			// Finished parsing
+			return nullptr;
+		} else if(input.grabCurr() == SYM_STRING_NODE) {
+			// TODO: Parse '$' symbol tag with string inside - this is always a leaf!
+			// TODO: Always advance the input when it is not the EOF already!
+			// beware to support escaping (at least for the '}' character)!!!
+			input.advance();
+		} else if(input.grabCurr() == SYM_CLOSE_NODE) {
+			// TODO: Parse the '}' closing symbol - should go up one level in the tree walking loop!
+			// Always advance the input when it is not the EOF already!
+			input.advance();
+		} else {
+			// TODO: Parse node name and node body!
+			// Always advance the input when it is not the EOF already!
 			input.advance();
 		}
-		fio::LenString digits = input.grabFromSeamToLast();
-		return Hexes { digits };
 	}
 };
 
