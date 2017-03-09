@@ -6,6 +6,7 @@
 #include<fstream>
 #include<cstdio>
 #include<vector>
+#include<algorithm>
 
 namespace fio {
 
@@ -22,7 +23,7 @@ struct LenString {
 	 *
 	 * Also one should keep in the mind that this entangles the life-cycles of the returned pointers validity to the underlying buffer!
 	 */
-	inline char* dangerous_destructive_unsafe_get_zeroterminator_added_str() {
+	inline char* dangerous_destructive_unsafe_get_zeroterminator_added_cstr() {
 		if(length == 0) {
 			return nullptr;
 		} else {
@@ -30,6 +31,45 @@ struct LenString {
 			*(startPtr + length) = 0;
 			return startPtr;
 		}
+	}
+
+	/**
+	 * Destructive operator that changes the underlying buffers in memory
+	 * by eliminating escaped characters. This is a dumb operation that basically
+	 * just removes the _FIRST_ escape character. If the escape char is '\' then:
+	 * -- "\\" becomes "\",0
+	 * -- "al\ma" becomes "alma",0
+	 * -- "\\\" becomes "\",0,'\'
+	 * -- "\\\\" becomes "\\",0,'\'
+	 * -- "al\\\ma" becomes "al\ma",0,'a'
+	 *
+	 * Basically what the escaping is doing is that every character after the
+	 * escapeChar need to be taken literally. If you are parsing in that way
+	 * that you ignore escaped closing characters while accumulating characters
+	 * this could be really handy!
+	 */
+	inline void dangerous_destructive_unsafe_escape_in_place(char escapeChar) {
+		bool escaped = false;	// true right after an escape char
+		int i; // i - Read head; j<=i. Always step incrementally and move through the array of chars
+		int j; // j - Write head: just go over the array. Step like i, but in case of escapes step back too
+		for(i = 0, j = 0; (i < length) && (j < length); ++i, ++j) {
+			char current = startPtr[i];
+			if(escaped || (escapeChar != current)) {
+				// Normal character, or escaped escape char - just copy to write head
+				startPtr[j] = current;
+				// Escaping will stop if there was any
+				escaped = false;
+			} else {
+				// Unescaped escape character
+				escaped = true;
+				// This decrementation will make j stay in place!
+				// while not writing anything will miss out this
+				// character from the output completely!
+				--j;
+			}
+		}
+		// Add the new zero terminator!
+		startPtr[++j] = 0;
 	}
 
 	/**
@@ -48,7 +88,7 @@ struct LenString {
 			charVec[length] = 0;
 			// Create a string from this character array
 			// and return this copy.
-			return std::string(&(charVec[0]));
+			return std::move(std::string(&(charVec[0])));
 		}
 	}
 };
@@ -109,6 +149,13 @@ public:
 	/**
 	 * Tells the user if the Input sub-class is supporting dangerous operations that modify underlying char sequences and such or not!
 	 * When this returns true, the using code might do crazy optimizations so beware!
+	 *
+	 * When using tbuf.h basically you let them put terminating zero characters on the address _AFTER_ subtree identifier
+	 * LenString char* sequences and the inner sequences of the ${...} kind of string utf8 nodes. In the earlier mentioned
+	 * case the terminator overrides the opening '{' and in the latter case it will override the closing '}' 
+	 * in memory after processing. Because of the structure. Other users of this library might do other optimizations but
+	 * they always try to close LenString or to change the original memory in the middle of the string (for ex. handle escaping).
+	 * Some implementation might allow users to do these tricks, but others (like maybe a memory mapped file) cannot let them do this!
 	 */
 	bool isSupportingDangerousDestructiveOperations() { }
 };
@@ -121,7 +168,7 @@ public:
  * This input class provides a way to get null-terminated strings with unsafe_get_str as it handles
  * data directly in memory, however this should be used with care and deep understanding of the code!
  */
-class FastInput : Input {
+class FastInput : public Input {
 private:
 	int length;	// -1 on errors, otherwise the length
 	char* buffer;	// the data of the file - read in all!

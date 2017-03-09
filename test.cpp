@@ -29,5 +29,14 @@ void testFileInHandler(){
 	// Use data
 	printf("...FileInHandler testing result(in.txt): %c\n", data);
 
-	// TODO: Test "real" functionality
+	// TODO: Test some "real" functionality
+	printf("Testing some real tbuf functionality...\n");
+	tbuf::Tree<fio::FastInput> fruit(fin);
+	
+	/* // Should fail with compile error:
+	int test = 2;
+	tbuf::Tree<int> fruit2(test);
+	*/
+
+	printf("End of testing\n");
 }
