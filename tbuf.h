@@ -125,14 +125,12 @@ public:
 	 * Create tree by parsing input. Takes ownership of input so that we can parse with optimizations
 	 */
 	Tree(InputSubClass &input) {
-printf("TESTERBESTER-0\n");
 		// These are only here to ensure type safety
 		// in our case of template usage...
 		fio::Input *testSubClassing = new InputSubClass();
 		delete testSubClassing;	// Should be fast!
 
 		// Parse
-printf("TESTERBESTER-1\n");
 		
 		// Check if we have any input to parse
 		if(input.grabCurr() == EOF) {
@@ -144,7 +142,6 @@ printf("TESTERBESTER-1\n");
 			Hexes rootHexes = parseHexes(input);
 			// Create the root node with empty child lists
 			root = Node {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, std::vector<Node>()};
-printf("TESTERBESTER-2\n");
 			// Fill-in the children while parsing nodes with tree-walking
 			parseNodes(input, root);
 		}
@@ -189,6 +186,7 @@ private:
 			return nullptr;
 		}
 
+// FIXME: remove
 printf("TESTER-BESTER-CURRCAR: %c\n", input.grabCurr());
 
 		// Try to parse a node which will be saved into the parent
@@ -242,7 +240,7 @@ printf("TESTER-BESTER-CURRCAR: %c\n", input.grabCurr());
 			if(input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
-printf("KULAKVA: %s\n", text);
+printf("(!) Found text-node: %s\n", text);
 				// Support escaping - at least for the '}' character
 				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
 			} else {
