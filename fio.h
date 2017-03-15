@@ -69,7 +69,7 @@ struct LenString {
 			}
 		}
 		// Add the new zero terminator!
-		startPtr[++j] = 0;
+		startPtr[j] = 0;
 	}
 
 	/**
@@ -280,6 +280,6 @@ public:
 }
 */
 
-} // fastin namespace ends
+} // fio namespace ends
 
 #endif // _FAST_IO_H

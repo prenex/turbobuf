@@ -6,6 +6,9 @@
 #include<cstdio>
 #include"fio.h"
 
+// Uncomment this if we want to see the debug logging
+#define DEBUG_LOG 1
+
 namespace tbuf {
 
 /** The special tree-node name that contains string-data */
@@ -186,9 +189,6 @@ private:
 			return nullptr;
 		}
 
-// FIXME: remove
-printf("TESTER-BESTER-CURRCAR: %c\n", input.grabCurr());
-
 		// Try to parse a node which will be saved into the parent
 		if(input.grabCurr() == EOF) {
 			// Finished parsing
@@ -240,7 +240,9 @@ printf("TESTER-BESTER-CURRCAR: %c\n", input.grabCurr());
 			if(input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
-printf("(!) Found text-node: %s\n", text);
+#ifdef DEBUG_LOG
+printf("(!) Found text-node: %s below %s(%u)\n", text, parent->name, (unsigned int)parent);
+#endif
 				// Support escaping - at least for the '}' character
 				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
 			} else {
@@ -258,10 +260,11 @@ printf("(!) Found text-node: %s\n", text);
 					parent,
 					std::vector<Node> {}
 			});
-			
-			// Always advance the input when it is not the EOF already!
-			input.advance();
 
+			// Advance over the '}' closing char
+			// (in dangerous operations it became a null terminator anyways)
+			input.advance();
+			
 			// Because the text-only nodes are always leaves
 			// the parents stays as it was
 			return parent;
@@ -284,11 +287,93 @@ printf("(!) Found text-node: %s\n", text);
 			// TODO: We are parsing a normal node and the read head is on the first letter of the name
 			// Parse node name and node body (the hexes for it)!
 			// Set the newly parsed node as the new current parent by returning it!
-			// Always advance the input when it is not the EOF already!
+			
+			// Let us try to find the contents then...
+			fio::LenString lsNodeName;
+
+			// This will hold the current character
+			char current = input.grabCurr();
+			// We mark a seam so that we can accumulate input
+			// this should work even if current became EOF immediately!
+			void* seamHandle = input.markSeam();
+			// Initialize closes flag. EOF surely closes (should not happen though)
+			bool nodeNameParsed = ((current == EOF));
+			// Loop and parse the text contents of this node
+			while(!nodeNameParsed) {
+				// Advance the input read head
+				input.advance();
+				// Read the next character
+				current = input.grabCurr();
+				// If we have found the open node '{' char, or EOF we reach end of the name
+				// when EOF is found that is basically an error that we silently try to handle somehow.
+				if((current == SYM_OPEN_NODE) || (current == EOF)) {
+					if(current == EOF) {
+						// Syntax error - no opening tag after tag name!
+						return nullptr;
+					}
+
+					// Found the end of the node name
+					lsNodeName = input.grabFromSeamToLast(seamHandle);
+					nodeNameParsed = true;
+				}
+			}
+
+			// The read head is on the SYM_OPEN_NODE character now so we need to
+			// advance so that we are on the first possible hex-data char...
 			input.advance();
 
-			// FIXME: this is no good
-			return parent;
+			// We should still have data
+			if(input.grabCurr() == EOF) {
+				// Just another kind of syntax error
+				// We just do something so that operation is not undefined..
+				return nullptr;
+			}
+
+			// Get the text of this node name
+			char* nodeName = nullptr;
+			if(input.isSupportingDangerousDestructiveOperations()) {
+				// Create null terminated c_str from the LenString
+				// this works as the '{' character will be overridden
+				nodeName = lsNodeName.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
+#ifdef DEBUG_LOG
+printf("(!) Found sub-node with name: %s below %s(%u)\n", nodeName, parent->name, (unsigned int)parent);
+#endif
+			} else {
+				// FIXME: Support escaping - at least for the '}' character
+				// FIXME: Create null terminated c_str from the LenString
+				fprintf(stderr, "FIXME: implement slower and safe operations!");
+			}
+
+			// We are now on the first character of a possible hex-data
+			// so what we need to do is to parse the hexes
+			// Rem.: This operation also moves the reading head so
+			//       the head will reide right after the hex-data
+			//       even if there was no hex-data. If however
+			//       the current was not a hex char the read head
+			//       does not move, just we get and empty Hexes!
+			//Hexes subNodeHexes = parseHexes(input);	// better inlined down there!
+
+			// Now we have all the data to build this subnode
+			// and set it as a parent. This must be added as a
+			// child of the current parent and returned so that
+			// childrens can be read up. If this node is completely
+			// empty (like: node{}) this still works the same way!
+			parent->children.push_back(Node{
+					NodeKind::NORM, // normal node type
+					std::move(parseHexes(input)), // inline hexes...
+					nodeName, // set the parsed node name
+					nullptr, // not a text node
+					parent,	// set parent node
+					std::vector<Node> {}	// start with empty children
+			});
+
+			
+			// Return the node we just added
+			// "vector.back" just returns the last element
+			// and we get the address for that as our current
+			// parent ptr so that deeper levels have it as parent.
+			// This make us do a depth-first tree walking without recursion
+			return &parent->children.back();
 		}
 	}
 };
