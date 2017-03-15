@@ -7,7 +7,8 @@
 #include"fio.h"
 
 // Uncomment this if we want to see the debug logging
-#define DEBUG_LOG 1
+// Or even better: define this before including us...
+//#define DEBUG_LOG 1
 
 namespace tbuf {
 
@@ -33,6 +34,7 @@ public:
 		for(unsigned int i = 0; i < len; ++i) {
 			result = (result << 4) + Hexes::hexValueOf(digits.startPtr[i]);
 		}
+		return result;
 	}
 
 	/** Try to return the unsigned int representation of this hex stream if possible */
@@ -43,6 +45,7 @@ public:
 		for(unsigned int i = 0; i < len; ++i) {
 			result = (result << 4) + Hexes::hexValueOf(digits.startPtr[i]);
 		}
+		return result;
 	}
 
 	/** Converts a character of [0..9] or [A..F] to its [0..15] integer range */

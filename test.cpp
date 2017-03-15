@@ -5,6 +5,9 @@
 #include<cstdint>
 #include<cstdio>
 
+// Ensure debug logging is in effect...
+#define DEBUG_LOG 1
+
 #include"tbuf.h"
 #include"fio.h"
 
@@ -32,6 +35,11 @@ void testFileInHandler(){
 	// TODO: Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");
 	tbuf::Tree<fio::FastInput> fruit(fin);
+
+	printf("%s(%u)\n", fruit.root.name, fruit.root.data.asUint());
+	printf("	%s(%u)\n", fruit.root.children[0].name, fruit.root.children[0].data.asUint());
+	printf("		%s(%s)\n", fruit.root.children[0].children[0].name, fruit.root.children[0].children[0].text);
+	printf("	%s(%u)\n", fruit.root.children[1].name, fruit.root.children[1].data.asUint());
 	
 	/* // Should fail with compile error:
 	int test = 2;
