@@ -4,6 +4,7 @@
 #include<memory>
 #include<vector>
 #include<cstdio>
+#include<functional>
 #include"fio.h"
 
 // Uncomment this if we want to see the debug logging
@@ -133,11 +134,6 @@ struct Node {
 template<class InputSubClass>
 class Tree {
 public:
-	/** Function type used for tQuery visitors */
-	typedef void (* tQueryNodeCoreVisitorCall)(NodeCore &visited);
-	/** Function type used for tQuery visitors */
-	typedef void (* tQueryNodeVisitorCall)(Node &visited);
-
 	/** Name for implicit root nodes */
 	const char *rootNodeName = "/";	// This name is special as it can be '/' only for the root - see tbnf description!
 	const char *textNodeName = "$"; // This name is special. We use this directly instead of pointing into the buffers...
@@ -178,7 +174,22 @@ public:
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
-	inline void tQuery(std::initializer_list<const char*> tPath, tQueryNodeVisitorCall visitor) {
+	inline void tQuery(std::initializer_list<const char*> tPath, std::function<void (NodeCore &found)> visitor) {
+		// Just do the usual call and grab the core from it
+		// simple lambda also shows usage as an example.
+		tQuery(tPath, [&visitor] (Node &visited) {
+				visitor(visited.core);
+		});
+	}
+
+	/**
+	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
+	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
+	 * is handled by one element in the first (initializer list of const char*) parameter. Basically this is the
+	 * function that is called when we use the tquery language with only one const char* param and use the '/'
+	 * separator between the levels.
+	 */
+	inline void tQuery(std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
 	}
 private:
 	/**
