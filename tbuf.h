@@ -110,6 +110,28 @@ struct NodeCore {
 	const char *text;
 };
 
+/** A decriptor that defines descending towards one of the child nodes */
+struct LevelDescender {
+	/** The name of the node we should descend down */
+	std::string targetName;
+	/** The index of the descend-target among the ones with targetName as their name */
+	int targetIndex;
+	/** Defines if we have ad-hoc (prefix) polymorphism - basically saying if we search for prefix or full fit */
+	bool adHocPolymorph;
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName) : 
+		targetName{_targetName}, targetIndex{0}, adHocPolymorph{false} {}
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName, int _targetIndex) : 
+		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{false} {}
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName, int _targetIndex, bool _adHocPolymorph) : 
+		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{_adHocPolymorph} {}
+};
+
 /**
  * The turbo-buf tree node that might be enchanced with traversal, caching or optimization informations for operations.
  * These are what the trees are built out of. Handled through the tree and memory is owned by the tree!!!
@@ -117,9 +139,6 @@ struct NodeCore {
 struct Node {
 	/** Contains the core-data of this node */
 	NodeCore core;
-
-	// TODO: Implement per-node hashing for going down the next level based of the name...
-	// TODO: Maybe implement some kind of caching or handle prefix-queries efficiently etc...
 
 	/**
 	 * Points to our parent - can be nullptr for implicit root nodes
@@ -129,12 +148,23 @@ struct Node {
 
 	/** The child nodes (if any). Handled by the tree */
 	std::vector<Node> children;
+
+	// TODO: Implement per-node hashing for going down the next level based of the name...
+	// TODO: Maybe implement some kind of caching or handle prefix-queries efficiently etc...
 };
 
 /**
  * Contains static convenience methods to do queries over nodes of trees
  */
+// TODO: Should be optimized in many ways. This is just the naive implementation...
 class TreeQuery {
+	/** Separates levels of the tree in queries */
+	const char LEVEL_SEPARATOR = '/';
+	/** Describes 'at' relationships - basically describes what fitting result we should get among the many using indexing */
+	const char AT_DESCRIPTOR = '@';
+	/** The symbol of ad-hoc polymorphism based on prefix matching */
+	const char AD_HOC_POLIMORFER= '_';
+
 	// TODO: implement tQuery calls for const char* query strings with '/' as level separator
 
 	/**
@@ -147,7 +177,7 @@ class TreeQuery {
 	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (NodeCore &found)> visitor) {
 		// Just do the usual call and grab the core from it
 		// simple lambda also shows usage as an example.
-		tQuery(root, tPath, [&visitor] (Node &visited) {
+		fetch(root, tPath, [&visitor] (Node &visited) {
 			visitor(visited.core);
 		});
 	}
