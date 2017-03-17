@@ -112,7 +112,7 @@ struct NodeCore {
 
 /**
  * The turbo-buf tree node that might be enchanced with traversal, caching or optimization informations for operations.
- * These are what the trees are built out of.
+ * These are what the trees are built out of. Handled through the tree and memory is owned by the tree!!!
  */
 struct Node {
 	/** Contains the core-data of this node */
@@ -127,8 +127,15 @@ struct Node {
 	 */
 	Node* parent;
 
-	/** The child nodes (if any) */
+	/** The child nodes (if any). Handled by the tree */
 	std::vector<Node> children;
+};
+
+/**
+ * Contains static convenience methods to do queries over nodes of trees
+ */
+class TreeQuery {
+	// TODO: implement tQuery calls for const char* query strings with '/' as level separator
 
 	/**
 	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
@@ -137,11 +144,11 @@ struct Node {
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
-	inline void tQuery(std::initializer_list<const char*> tPath, std::function<void (NodeCore &found)> visitor) {
+	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (NodeCore &found)> visitor) {
 		// Just do the usual call and grab the core from it
 		// simple lambda also shows usage as an example.
-		tQuery(tPath, [&visitor] (Node &visited) {
-				visitor(visited.core);
+		tQuery(root, tPath, [&visitor] (Node &visited) {
+			visitor(visited.core);
 		});
 	}
 
@@ -152,7 +159,7 @@ struct Node {
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
-	inline void tQuery(std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
+	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
 	}
 };
 
