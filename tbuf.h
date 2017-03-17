@@ -85,9 +85,10 @@ enum NodeKind {
 };
 
 /**
- * The generic turbo-buf tree-node. Do not cache the values that are owned by the tree to avoid shooting your leg!
+ * The generic core of a turbo-buf tree-node. Do not cache the values that are owned by the tree to avoid shooting your leg!
+ * This is what the user should see when he is providing callbacks to walk over the tree or get data.
  */
-struct Node {
+struct NodeCore {
 	/** Defines the kind of this node */
 	NodeKind nodeKind;
 	/**
@@ -106,6 +107,18 @@ struct Node {
 	 * - MEMORY IS OWNED BY THE TREE! Do not cache this!
 	 */
 	const char *text;
+};
+
+/**
+ * The turbo-buf tree node that might be enchanced with traversal, caching or optimization informations for operations.
+ * These are what the trees are built out of.
+ */
+struct Node {
+	/** Contains the core-data of this node */
+	NodeCore core;
+
+	// TODO: Implement per-node hashing for going down the next level based of the name...
+	// TODO: Maybe implement some kind of caching or handle prefix-queries efficiently etc...
 
 	/**
 	 * Points to our parent - can be nullptr for implicit root nodes
@@ -120,6 +133,11 @@ struct Node {
 template<class InputSubClass>
 class Tree {
 public:
+	/** Function type used for tQuery visitors */
+	typedef void (* tQueryNodeCoreVisitorCall)(NodeCore &visited);
+	/** Function type used for tQuery visitors */
+	typedef void (* tQueryNodeVisitorCall)(Node &visited);
+
 	/** Name for implicit root nodes */
 	const char *rootNodeName = "/";	// This name is special as it can be '/' only for the root - see tbnf description!
 	const char *textNodeName = "$"; // This name is special. We use this directly instead of pointing into the buffers...
@@ -151,6 +169,16 @@ public:
 			// Fill-in the children while parsing nodes with tree-walking
 			parseNodes(input, root);
 		}
+	}
+
+	/**
+	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
+	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
+	 * is handled by one element in the first (initializer list of const char*) parameter. Basically this is the
+	 * function that is called when we use the tquery language with only one const char* param and use the '/'
+	 * separator between the levels.
+	 */
+	inline void tQuery(std::initializer_list<const char*> tPath, tQueryNodeVisitorCall visitor) {
 	}
 private:
 	/**
@@ -244,7 +272,7 @@ private:
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
 #ifdef DEBUG_LOG
-printf("(!) Found text-node: %s below %s(%u)\n", text, parent->name, (unsigned int)parent);
+printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsigned int)parent);
 #endif
 				// Support escaping - at least for the '}' character
 				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
@@ -339,7 +367,7 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->name, (unsigned i
 				// this works as the '{' character will be overridden
 				nodeName = lsNodeName.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
 #ifdef DEBUG_LOG
-printf("(!) Found sub-node with name: %s below %s(%u)\n", nodeName, parent->name, (unsigned int)parent);
+printf("(!) Found sub-node with name: %s below %s(%u)\n", nodeName, parent->core.name, (unsigned int)parent);
 #endif
 			} else {
 				// FIXME: Support escaping - at least for the '}' character
