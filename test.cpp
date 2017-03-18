@@ -97,5 +97,23 @@ void testTbuf(){
 	tbuf::Tree<int> fruit2(test);
 	*/
 
+	// Pretty-print the tree using dfs
+	printf("Pretty-printing tree and testing DFS:\n");
+	fruit.root.dfs_preorder([] (tbuf::NodeCore& nc, unsigned int depth){
+			// Indentation
+			for(unsigned int i = 0; i < depth; ++i) {
+				printf("\t");
+			}
+			// Tree data
+			printf("%s(", nc.name);
+			if(nc.text == nullptr) {
+				// Normal node - show data as uint
+				printf("%u)\n", nc.data.asUint());
+			} else {
+				// Text-node - show text
+				printf("%s)\n", nc.text);
+			}
+	});
+
 	printf("End of testing\n");
 }

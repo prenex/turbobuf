@@ -120,7 +120,7 @@ printf(" --- Level descender is being built out of: %s\n", descriptor_cstr);
 /**
  * Defines possible node kinds
  */
-enum NodeKind {
+enum class NodeKind {
 	/** An empty node indicating we cannot read anything */
 	EMPTY = 0,
 	/** The root-node - it is a special normal node */
@@ -215,6 +215,37 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 		// Didn't found any child for this descriptor...
 		return nullptr;
 	}
+
+	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is preorder. */
+	void dfs_preorder(std::function<void (NodeCore &node, unsigned int depth)> visitor) {
+		dfs_preorder_impl(visitor, 0);
+	}
+
+	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is preorder. */
+	void dfs_postorder(std::function<void (NodeCore &node, unsigned int depth)> visitor) {
+		dfs_postorder_impl(visitor, 0);
+	}
+
+private:
+	// TODO: maybe do without recursion if necessary?
+	// Recursive dfs for preorder
+	void dfs_preorder_impl(std::function<void (NodeCore &node, unsigned int depth)> visitor, unsigned int depth) {
+		// Visit
+		visitor(this->core, depth);
+		// recurse
+		for(int i = 0; i < this->children.size(); ++i) {
+			children[i].dfs_preorder_impl(visitor, depth + 1);
+		}
+	}
+	// Recursive dfs for postorder
+	void dfs_postorder_impl(std::function<void (NodeCore &node, unsigned int depth)> visitor, unsigned int depth) {
+		// recurse
+		for(int i = 0; i < this->children.size(); ++i) {
+			children[i].dfs_preorder_impl(visitor, depth + 1);
+		}
+		// Visit
+		visitor(this->core, depth);
+	}
 };
 
 /**
@@ -228,9 +259,6 @@ public:
 	const char AT_DESCRIPTOR = '@';
 	/** The symbol of ad-hoc polymorphism based on prefix matching */
 	const char AD_HOC_POLIMORFER= '_';
-
-	/** Defines what mode the depth first search runs */
-	enum class DFS_MODE { PREORDER, POSTORDER };
 
 	// TODO: implement tQuery calls for const char* query strings with '/' as level separator
 
