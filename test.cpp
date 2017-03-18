@@ -35,7 +35,7 @@ void testTbuf(){
 
 	// Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");
-	tbuf::Tree<fio::FastInput> fruit(fin);
+	tbuf::Tree fruit(fin);
 
 	printf("%s(%u)\n", fruit.root.core.name, fruit.root.core.data.asUint());
 	printf("	%s(%u)\n", fruit.root.children[0].core.name, fruit.root.children[0].core.data.asUint());

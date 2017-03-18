@@ -340,7 +340,6 @@ printf("fetch(...) cstr->descender conversion pathElem: %s\n", pathElem);
 	}
 };
 
-template<class InputSubClass>
 class Tree {
 public:
 	/** Name for implicit root nodes */
@@ -351,9 +350,10 @@ public:
 	Node root;
 
 	/**
-	 * Create tree by parsing input. Takes ownership of input so that we can parse with optimizations
+	 * Create tree by parsing input. Might take ownership of data structures of the "input" so that we can parse with optimizations
 	 */
-	Tree(InputSubClass &input) {
+	template<class InputSubClass>
+	Tree(InputSubClass &input, bool ignoreWhiteSpace = true) {
 		// These are only here to ensure type safety
 		// in our case of template usage...
 		fio::Input *testSubClassing = new InputSubClass();
@@ -372,7 +372,7 @@ public:
 			// Create the root node with empty child lists
 			root = Node {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, std::vector<Node>()};
 			// Fill-in the children while parsing nodes with tree-walking
-			parseNodes(input, root);
+			parseNodes(input, root, ignoreWhiteSpace);
 		}
 	}
 private:
@@ -380,6 +380,7 @@ private:
 	 * Advances input until it is a hex characted and parse.
 	 * The current of input will point after the first non-hex character after this operation...
 	 */
+	template<class InputSubClass>
 	inline Hexes parseHexes(InputSubClass &input) {
 		if(!Hexes::isHexCharacter(input.grabCurr())) {
 			// No hexes at current position
@@ -396,11 +397,12 @@ private:
 	}
 
 	/** Parse all child nodes of the root after parsing hexes of root */
-	inline void parseNodes(InputSubClass &input, Node &parent){
+	template<class InputSubClass>
+	inline void parseNodes(InputSubClass &input, Node &parent, bool ignoreWhiteSpace){
 		// Parse from the very start point after the hexes of the root!
 		// (Non-recursive tree-walking in a depth first approach)
 		Node* currentParent = &parent;
-		while(nullptr != (currentParent = parseNode(input, currentParent)));
+		while(nullptr != (currentParent = parseNode(input, currentParent, ignoreWhiteSpace)));
 	}
 
 	/**
@@ -409,7 +411,8 @@ private:
 	 * The new parent can be the child of the parent if we can go deeper, or the parent if we keep the level or
 	 * the parent of the parent if we see that have gotten the parents closing parentheses...
 	 */
-	inline Node* parseNode(InputSubClass &input, Node *parent) {
+	template<class InputSubClass>
+	inline Node* parseNode(InputSubClass &input, Node *parent, bool ignoreWhiteSpace) {
 		// Sanity check
 		if(parent == nullptr) {
 			return nullptr;
@@ -419,6 +422,11 @@ private:
 		if(input.grabCurr() == EOF) {
 			// Finished parsing
 			return nullptr;
+		} else if(ignoreWhiteSpace && isspace(input.grabCurr())) {
+			// Just advance over whitespaces in most cases 
+			// this does not apply when we are in the middle of a text-node however
+			input.advance();
+			return parent;
 		} else if(input.grabCurr() == SYM_STRING_NODE) {
 			// Parse '$' symbol tag with string inside - this is always a leaf!
 			// advance onto the '{' by skipping anything in-between
