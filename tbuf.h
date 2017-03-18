@@ -4,7 +4,9 @@
 #include<memory>
 #include<vector>
 #include<cstdio>
+#include<cstring>
 #include<functional>
+#include<initializer_list>
 #include"fio.h"
 
 // Uncomment this if we want to see the debug logging
@@ -71,6 +73,39 @@ public:
 	}
 };
 
+/** A decriptor that defines descending towards one of the child nodes */
+struct LevelDescender {
+	/**
+	 * The name of the node we should descend down. Does not contain '@' or '_' anymore - just the name prefix!
+	 * Can be an empty string in which case no element should be found never.
+	 */
+	std::string targetName;
+	/** The index of the descend-target among the ones with targetName as their name.*/
+	int targetIndex;
+	/** Defines if we have ad-hoc (prefix) polymorphism - basically saying if we search for prefix or full fit */
+	bool adHocPolymorph;
+
+	/** Create empty level descender */
+	LevelDescender() : targetName{""}, targetIndex{0}, adHocPolymorph{false} {}
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName) : 
+		targetName{_targetName}, targetIndex{0}, adHocPolymorph{false} {}
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName, int _targetIndex) : 
+		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{false} {}
+
+	/** Create a level descender with the given data */
+	LevelDescender(std::string _targetName, int _targetIndex, bool _adHocPolymorph) : 
+		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{_adHocPolymorph} {}
+
+	LevelDescender(const char* descriptor_cstr) : targetIndex{0}, adHocPolymorph{false} {
+		// FIXME: fix this so that we do not only handle the simple cases!
+		targetName = std::string(descriptor_cstr);
+	}
+};
+
 /**
  * Defines possible node kinds
  */
@@ -110,28 +145,6 @@ struct NodeCore {
 	const char *text;
 };
 
-/** A decriptor that defines descending towards one of the child nodes */
-struct LevelDescender {
-	/** The name of the node we should descend down */
-	std::string targetName;
-	/** The index of the descend-target among the ones with targetName as their name */
-	int targetIndex;
-	/** Defines if we have ad-hoc (prefix) polymorphism - basically saying if we search for prefix or full fit */
-	bool adHocPolymorph;
-
-	/** Create a level descender with the given data */
-	LevelDescender(std::string _targetName) : 
-		targetName{_targetName}, targetIndex{0}, adHocPolymorph{false} {}
-
-	/** Create a level descender with the given data */
-	LevelDescender(std::string _targetName, int _targetIndex) : 
-		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{false} {}
-
-	/** Create a level descender with the given data */
-	LevelDescender(std::string _targetName, int _targetIndex, bool _adHocPolymorph) : 
-		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{_adHocPolymorph} {}
-};
-
 /**
  * The turbo-buf tree node that might be enchanced with traversal, caching or optimization informations for operations.
  * These are what the trees are built out of. Handled through the tree and memory is owned by the tree!!!
@@ -149,15 +162,52 @@ struct Node {
 	/** The child nodes (if any). Handled by the tree */
 	std::vector<Node> children;
 
-	// TODO: Implement per-node hashing for going down the next level based of the name...
+	// TODO: Implement per-node hashing for going down the next level based of the name and simple lookup...
 	// TODO: Maybe implement some kind of caching or handle prefix-queries efficiently etc...
+	
+	/** Descend into one of our children designated by the given level descender (or return nullptr if not available) */
+	inline Node* descend(LevelDescender ld) {
+		int foundIndex = -1;
+		for(Node &child : children) {
+			if(!ld.adHocPolymorph) {
+				// Simple lookup
+				if(!strcmp(child.core.name, ld.targetName.c_str())) {
+					// if child node name is not different from descriptor's name
+					// then they are the same and we have found a possible children
+					// we can return. Only possible because of at-indexing though...
+					++foundIndex;	// update at-indexing
+					if(foundIndex == ld.targetIndex) {
+						// If we have found that child of this name/type
+						// we can return pointer to it
+						return &child;
+					}
+				}
+			} else {
+				// Prefix-lookup
+				if(!strncmp(child.core.name, ld.targetName.c_str(), ld.targetName.length())) {
+					// if child node name is not different from descriptor's name
+					// then they are the same and we have found a possible children
+					// we can return. Only possible because of at-indexing though...
+					++foundIndex;	// update at-indexing
+					if(foundIndex == ld.targetIndex) {
+						// If we have found that child of this name/type
+						// we can return pointer to it
+						return &child;
+					}
+				}
+			}
+		}
+
+		// Didn't found any child for this descriptor...
+		return nullptr;
+	}
 };
 
 /**
  * Contains static convenience methods to do queries over nodes of trees
  */
-// TODO: Should be optimized in many ways. This is just the naive implementation...
 class TreeQuery {
+public:
 	/** Separates levels of the tree in queries */
 	const char LEVEL_SEPARATOR = '/';
 	/** Describes 'at' relationships - basically describes what fitting result we should get among the many using indexing */
@@ -165,12 +215,15 @@ class TreeQuery {
 	/** The symbol of ad-hoc polymorphism based on prefix matching */
 	const char AD_HOC_POLIMORFER= '_';
 
+	/** Defines what mode the depth first search runs */
+	enum class DFS_MODE { PREORDER, POSTORDER };
+
 	// TODO: implement tQuery calls for const char* query strings with '/' as level separator
 
 	/**
 	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
 	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
-	 * is handled by one element in the first (initializer list of const char*) parameter. Basically this is the
+	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
@@ -183,13 +236,62 @@ class TreeQuery {
 	}
 
 	/**
+	 * If you do not want to further move along the result in the tree, use the fetches that ask 
+	 * for a NodeCore instead in your functor that you are providing! Only use this if you need it!
+	 *
 	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
 	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
-	 * is handled by one element in the first (initializer list of const char*) parameter. Basically this is the
+	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
 	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
+		// Create descenders out of the cstr for each level
+		std::vector<LevelDescender> descenders = std::vector<LevelDescender>(tPath.size());
+		for(auto pathElem : tPath) {
+			descenders.push_back(LevelDescender(pathElem));
+		}
+		// Use the fetch already defined for descenders
+		fetch(root, descenders, visitor);
+	}
+
+	/**
+	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
+	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
+	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
+	 * function that is called by the other - more user friendly cases too.
+	 */
+	inline static void fetch(Node &root, std::vector<LevelDescender> tPath, std::function<void (NodeCore &found)> visitor) {
+		// Just do the usual call and grab the core from it
+		// simple lambda also shows usage as an example.
+		fetch(root, tPath, [&visitor] (Node &visited) {
+			visitor(visited.core);
+		});
+	}
+
+	/**
+	 * If you do not want to further move along the result in the tree, use the fetches that ask 
+	 * for a NodeCore instead in your functor that you are providing! Only use this if you need it!
+	 *
+	 * Tree-query: Run the given operation on the found node. If node is not found, this will be a NO-OP.
+	 * The best and most handy way is to use lambdas when calling a tQuery. When in c++ each "level" of the tree
+	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
+	 * function that is called by the other - more user friendly cases too.
+	 */
+	inline static void fetch(Node &root, std::vector<LevelDescender> tPath, std::function<void (Node &found)> visitor) {
+		Node *currentHead = &root;
+		for(int i = 0; i < tPath.size(); ++i) {
+			// Try descending and update current head with that
+			currentHead = currentHead->descend(tPath[i]);
+			// Node is not found - exit immediately
+			if(currentHead == nullptr) {
+				return;
+			}
+		}
+
+		// Node has been found; return it.
+		// No NPE can happen here because of the return-checks above
+		visitor(*currentHead);
 	}
 };
 
@@ -363,7 +465,7 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 				return parent;
 			}
 		} else {
-			// TODO: We are parsing a normal node and the read head is on the first letter of the name
+			// We are parsing a normal node and the read head is on the first letter of the name
 			// Parse node name and node body (the hexes for it)!
 			// Set the newly parsed node as the new current parent by returning it!
 			

@@ -4,6 +4,7 @@
 #include<iostream>
 #include<cstdint>
 #include<cstdio>
+#include<vector>
 
 // Ensure debug logging is in effect...
 #define DEBUG_LOG 1
@@ -11,17 +12,17 @@
 #include"tbuf.h"
 #include"fio.h"
 
-void testFileInHandler();
+void testTbuf();
 
 int main(){
 	// Various tests
-	testFileInHandler();
+	testTbuf();
 
 	// Exit
 	return 0;
 }
 
-void testFileInHandler(){
+void testTbuf(){
 	printf("Trying to read from in.txt...\n");
 	// Read data from input
 	const char* inputFile = "in.txt";
@@ -32,7 +33,7 @@ void testFileInHandler(){
 	// Use data
 	printf("...FileInHandler testing result(in.txt): %c\n", data);
 
-	// TODO: Test some "real" functionality
+	// Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");
 	tbuf::Tree<fio::FastInput> fruit(fin);
 
@@ -40,6 +41,20 @@ void testFileInHandler(){
 	printf("	%s(%u)\n", fruit.root.children[0].core.name, fruit.root.children[0].core.data.asUint());
 	printf("		%s(%s)\n", fruit.root.children[0].children[0].core.name, fruit.root.children[0].children[0].core.text);
 	printf("	%s(%u)\n", fruit.root.children[1].core.name, fruit.root.children[1].core.data.asUint());
+
+	printf("Fetch testing...\n");
+	int fetchTestOk = 0;
+	tbuf::TreeQuery::fetch(fruit.root,
+			std::vector<tbuf::LevelDescender>{
+				tbuf::LevelDescender("egy"),
+				tbuf::LevelDescender("ketto"),
+				tbuf::LevelDescender("harom"),
+			},
+			[&fetchTestOk] (tbuf::NodeCore &nc) {
+				printf("Found node with data: %u\n", nc.data.asUint());
+				++fetchTestOk; // we should have found this...
+			});
+	printf("...fetch test ok: %d\n", fetchTestOk);
 	
 	/* // Should fail with compile error:
 	int test = 2;
