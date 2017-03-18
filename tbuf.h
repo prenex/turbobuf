@@ -21,6 +21,11 @@ const char SYM_OPEN_NODE = '{';
 const char SYM_CLOSE_NODE = '}';
 const char SYM_ESCAPE = '\\';	// The "\" is used for escaping in string nodes
 
+const char *SYM_STRING_NODE_STR = "$";
+const char *SYM_OPEN_NODE_STR = "{";
+const char *SYM_CLOSE_NODE_STR = "}";
+const char *SYM_ESCAPE_STR = "\\";	// The "\" is used for escaping in string nodes
+
 /** Hex-data stream class */
 class Hexes {
 public:
@@ -89,7 +94,8 @@ struct LevelDescender {
 	LevelDescender() : targetName{""}, targetIndex{0}, adHocPolymorph{false} {}
 
 	/** Create a level descender with the given data */
-	LevelDescender(std::string _targetName) : 
+	// Should be explicit to avoid surprises when conversions apply
+	explicit LevelDescender(std::string _targetName) : 
 		targetName{_targetName}, targetIndex{0}, adHocPolymorph{false} {}
 
 	/** Create a level descender with the given data */
@@ -100,9 +106,14 @@ struct LevelDescender {
 	LevelDescender(std::string _targetName, int _targetIndex, bool _adHocPolymorph) : 
 		targetName{_targetName}, targetIndex{_targetIndex}, adHocPolymorph{_adHocPolymorph} {}
 
-	LevelDescender(const char* descriptor_cstr) : targetIndex{0}, adHocPolymorph{false} {
+	/** Create a level descender with the given data */
+	// Should be explicit to avoid surprises when conversions apply
+	explicit LevelDescender(const char* descriptor_cstr) : targetIndex{0}, adHocPolymorph{false} {
 		// FIXME: fix this so that we do not only handle the simple cases!
-		targetName = std::string(descriptor_cstr);
+#ifdef DEBUG_LOG
+printf(" --- Level descender is being built out of: %s\n", descriptor_cstr);
+#endif
+		targetName = descriptor_cstr; // uses string copy construction from cstr
 	}
 };
 
@@ -169,6 +180,9 @@ struct Node {
 	inline Node* descend(LevelDescender ld) {
 		int foundIndex = -1;
 		for(Node &child : children) {
+#ifdef DEBUG_LOG
+printf(" -- Trying child with name:%s against target name: %s\n", child.core.name, ld.targetName.c_str());
+#endif
 			if(!ld.adHocPolymorph) {
 				// Simple lookup
 				if(!strcmp(child.core.name, ld.targetName.c_str())) {
@@ -247,12 +261,15 @@ public:
 	 */
 	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
 		// Create descenders out of the cstr for each level
-		std::vector<LevelDescender> descenders = std::vector<LevelDescender>(tPath.size());
-		for(auto pathElem : tPath) {
-			descenders.push_back(LevelDescender(pathElem));
+		std::vector<LevelDescender> descenders;
+		for(const char *pathElem : tPath) {
+#ifdef DEBUG_LOG
+printf("fetch(...) cstr->descender conversion pathElem: %s\n", pathElem);
+#endif
+			descenders.push_back(std::move(LevelDescender(pathElem)));
 		}
 		// Use the fetch already defined for descenders
-		fetch(root, descenders, visitor);
+		fetch(root, std::move(descenders), visitor);
 	}
 
 	/**

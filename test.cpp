@@ -54,6 +54,22 @@ void testTbuf(){
 				printf("Found node with data: %u\n", nc.data.asUint());
 				++fetchTestOk; // we should have found this...
 			});
+	tbuf::TreeQuery::fetch(fruit.root,
+			std::vector<tbuf::LevelDescender>{
+				tbuf::LevelDescender("egy"),
+				tbuf::LevelDescender("ketto"),
+				tbuf::LevelDescender("harom"),
+			},
+			[&fetchTestOk] (tbuf::NodeCore &nc) {
+				printf("Found node with data: %u\n", nc.data.asUint());
+				++fetchTestOk; // we should have found this...
+			});
+	tbuf::TreeQuery::fetch(fruit.root,
+			{"hololo", tbuf::SYM_STRING_NODE_STR},
+			[&fetchTestOk] (tbuf::NodeCore &nc) {
+				printf("Found node with text: %s\n", nc.text);
+				++fetchTestOk; // we should have found this...
+			});
 	printf("...fetch test ok: %d\n", fetchTestOk);
 	
 	/* // Should fail with compile error:
