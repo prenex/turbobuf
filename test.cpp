@@ -70,6 +70,19 @@ void testTbuf(){
 				printf("Found node with text: %s\n", nc.text);
 				++fetchTestOk; // we should have found this...
 			});
+	// Try ad-hoc polymorphism using prefixes
+	tbuf::TreeQuery::fetch(fruit.root,
+			std::vector<tbuf::LevelDescender>{
+				// The third fruit_* should be chosen for descending
+				tbuf::LevelDescender("fruit", 2, true),
+				// and descending into its text node
+				tbuf::LevelDescender(tbuf::SYM_STRING_NODE_STR),
+			},
+			[&fetchTestOk] (tbuf::NodeCore &nc) {
+				// should print out "pi" as text:
+				printf("Found node with text: %s\n", nc.text);
+				++fetchTestOk; // we should have found this...
+			});
 	printf("...fetch test ok: %d\n", fetchTestOk);
 	
 	/* // Should fail with compile error:
