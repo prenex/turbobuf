@@ -1,0 +1,90 @@
+# TurboBuf syntax descriptor.
+# This file describes the basic syntax of the text form of the turbobuf protocol.
+# This protocol is basically:
+#  - A stream of hex digits (represented as one readable character each)
+#  - Arranged into a tree by identifiers and '{', '}'
+#  - With possibility for a special UTF8 plain text content node for real texts
+#
+# As every turbobuf sentence is a tree, parsing is trivial, however we can
+# create further tbnf descriptors to define a subprotocol and then we can
+# check if messages are complying to the subprotocol easily. This is
+# basically a possibility to specify the interface syntax and will be
+# done in the save kind of tbnf as this file is in!
+# Some points about turbo-bnf:
+# -> Identifier names should not clash when defining the language.
+# -> Character classes are defined by '[' and ']'
+# -> Various options are defined by '|'
+# -> Most of basic BNF as you can see...
+# -> TurboBNF Multiplicity:
+#           '<x>' == Exactly 1 times the x;
+#           '<x>?' == 0 or 1 times the x;
+#           '<x>*' == [0..*] times the x;
+#           '<x>+' == [1..*] times the x;
+#           '<x>*N' == exactly N times the x;
+#           '<x>*N?' == exactly N or zero times the x;
+#           '<x>*N*' == exactly 0, N, 2*N, 3*N, ... times the x
+#           '<x>*N+' == exactly N, 2*N, 3*N, ... times the x
+# ESCAPED_UTF8* is the only predefined term here...
+
+# A hexadecimal digit as the basic building block
+hex::=[0..9A..F]
+# Elemental UTF8 string container tree-node
+# Escape character is '\'
+# the followings are escaped: '\', '{', '}'
+msg::=${<ESCAPED_UTF8*>}
+# Elemental identifier names
+nam::=[a..z][a..z0..9_]*
+
+# A message is the same as the body of one node...
+lang::=<body>
+# A root can be a message on its own too if necessary.
+root::=<msg>|<node>
+# A tree-node is a name and parenthesed body
+node::=<nam>{<body>}
+# The body first contains possible hex digits, then futher subtrees
+body::=<hex>*<root>*
+
+#################
+# TYPE CHECKING #
+#################
+# The above elements can be used in the tbnf desciptor for a given
+# subprotocol interface. Then checks can be run against the forest
+# of a message if its types correspond to a constrained tbnf syntax.
+# In your tbnf decriptor on your own:
+# check::= # define constraints yourself properly in turbo-bnf
+# The above can be parsed easily, if you add this type checking info
+# too, then the system can provide you with more help.
+# Type checking and enchancing can be done in good runtime too!
+#
+# You can use a simple form of inheritance with '_': As you can
+# see the system supports subclassing in that sense that a sub-
+# class need to contain all possible trees as its parents, and
+# of course possibly add more as a suffix in the end! This works
+# for both the query language and the type checking system!
+#
+# For example:
+# --------------------
+# @include<tbuf.tbnf>
+# start::=<cmd>|<data>
+# cmd::=cmd{<msg><msg>?}
+# data::=d{<d>+}
+# # ad-hoc polymorphism here, for color variants:
+# d::=<msg>|<c_*>
+# # 16-color palette string: c{0321F} for 5 colors
+# c::=c{<hex>+}
+# # 4bit per channel color-string c_4{0F000F} for green and blue color pair
+# c_4::=c_4{<hex>$3+}
+# # 8bit per channel color-string c_8{FF0000} for one red color
+# c_8::=c_8{<hex>$6+}
+# # 8bit per channel color-string with alpha channel
+# c_9::=c_9{<hex>$8+}
+
+################
+# TREE-QUERIES #
+################
+# There will be a tree-query language for the same system. It is a little bit like jquery or xpath, but much more lightweight.
+# Some example queries:
+# * "to/data/lcd" - descend into node to, then the first data node and then the first lcd node.
+# * "to/c_@3" - descend into the node "to" and find the forth subtree node of the c_ class. That is c, c_subcls1, c_subcls1_subcls2, ...
+# * "to/data@1/lcd@0" - descend into the node to, then the second data node and its first lcd node
+# * "data/color_" - return the first element that is a color
