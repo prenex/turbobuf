@@ -83,6 +83,13 @@ void testTbuf(){
 				printf("Found node with text: %s\n", nc.text);
 				++fetchTestOk; // we should have found this...
 			});
+	tbuf::TreeQuery::fetch(fruit.root,
+			{"notexistent", tbuf::SYM_STRING_NODE_STR},
+			[&fetchTestOk] (tbuf::NodeCore &nc) {
+				// Nothing should get printed here: 
+				printf("FIXME: either test input or code is broken! %s\n", nc.text);
+				--fetchTestOk; // we should have not found this...
+			});
 	printf("...fetch test ok: %d\n", fetchTestOk);
 	
 	/* // Should fail with compile error:
