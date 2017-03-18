@@ -378,7 +378,7 @@ public:
 	}
 private:
 	/**
-	 * Advances input until it is a hex characted and parse.
+	 * Advances input until it is a hex character and parse.
 	 * The current of input will point after the first non-hex character after this operation...
 	 */
 	template<class InputSubClass>
