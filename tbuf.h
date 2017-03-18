@@ -5,6 +5,7 @@
 #include<vector>
 #include<cstdio>
 #include<cstring>
+#include<cctype>
 #include<functional>
 #include<initializer_list>
 #include"fio.h"
