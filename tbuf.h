@@ -8,6 +8,7 @@
 #include<cctype>
 #include<functional>
 #include<initializer_list>
+#include<unordered_set>
 #include"fio.h"
 
 // Uncomment this if we want to see the debug logging
@@ -84,6 +85,11 @@ public:
 		} else {
 			return false;
 		}
+	}
+
+	/** Return the empty hexes */
+	inline static Hexes EMPTY_HEXES() {
+	       return	{{0, nullptr}};
 	}
 };
 
@@ -359,10 +365,16 @@ public:
 	Node root;
 
 	/**
-	 * Create tree by parsing input. Might take ownership of data structures of the "input" so that we can parse with optimizations
+	 * Create tree by parsing input.
+	 * Might take ownership of data structures of the "input" so that we can parse with optimizations in case
+	 * canReferMemoryFromInputLater is set as true. In that case you should really beware that the life-cycle 
+	 * of input should be longer than the life-cycle of this object otherwise corrupted strings might get to
+	 * be returned from this tree later! If you set that parameter to be true, everything is a little bit
+	 * faster as we are not using that much dynamic memory...
 	 */
+	// TODO: This is not so clean, why not own input when canReferMemoryFromInput is true? Should refactor!
 	template<class InputSubClass>
-	Tree(InputSubClass &input, bool ignoreWhiteSpace = true) {
+	Tree(InputSubClass &input, bool canReferMemoryFromInput = false, bool ignoreWhiteSpace = true) {
 		// These are only here to ensure type safety
 		// in our case of template usage...
 		fio::Input *testSubClassing = new InputSubClass();
@@ -381,10 +393,17 @@ public:
 			// Create the root node with empty child lists
 			root = Node {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, std::vector<Node>()};
 			// Fill-in the children while parsing nodes with tree-walking
-			parseNodes(input, root, ignoreWhiteSpace);
+			parseNodes(input, root, canReferMemoryFromInput, ignoreWhiteSpace);
 		}
 	}
 private:
+	/**
+	 * Those strings go here that we are not able to fetch in an optimized way out of the input handler's memory.
+	 * Also dynamically added elements strings are going here and user can ask the tree to copy everything instead of
+	 * doing the hacky ways of referring to memory we have in the input... Latter is faster, but more error prone.
+	 */
+	std::unordered_set<std::string> treeStrings;
+
 	/**
 	 * Advances input until it is a hex character and parse.
 	 * The current of input will point after the first non-hex character after this operation...
@@ -407,11 +426,11 @@ private:
 
 	/** Parse all child nodes of the root after parsing hexes of root */
 	template<class InputSubClass>
-	inline void parseNodes(InputSubClass &input, Node &parent, bool ignoreWhiteSpace){
+	inline void parseNodes(InputSubClass &input, Node &parent, bool canReferMemoryFromInput, bool ignoreWhiteSpace){
 		// Parse from the very start point after the hexes of the root!
 		// (Non-recursive tree-walking in a depth first approach)
 		Node* currentParent = &parent;
-		while(nullptr != (currentParent = parseNode(input, currentParent, ignoreWhiteSpace)));
+		while(nullptr != (currentParent = parseNode(input, currentParent, canReferMemoryFromInput, ignoreWhiteSpace)));
 	}
 
 	/**
@@ -421,7 +440,7 @@ private:
 	 * the parent of the parent if we see that have gotten the parents closing parentheses...
 	 */
 	template<class InputSubClass>
-	inline Node* parseNode(InputSubClass &input, Node *parent, bool ignoreWhiteSpace) {
+	inline Node* parseNode(InputSubClass &input, Node *parent, bool useOptimizedButHackyStringReferences,bool ignoreWhiteSpace) {
 		// Sanity check
 		if(parent == nullptr) {
 			return nullptr;
@@ -493,7 +512,7 @@ private:
 
 			// Get the text of this node
 			char* text = nullptr;
-			if(input.isSupportingDangerousDestructiveOperations()) {
+			if(useOptimizedButHackyStringReferences && input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
 #ifdef DEBUG_LOG
@@ -503,8 +522,16 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
 			} else {
 				// FIXME: Support escaping - at least for the '}' character
-				// FIXME: Create null terminated c_str from the LenString
-				fprintf(stderr, "FIXME: implement slower and safe operations!");
+				fprintf(stderr, "FIXME: should support escaping here too!!!");
+				// Create std::string from the LenString and
+				// store it in the local set of strings we have in the tree.
+				// This way the tree owns these copies as it should be.
+				treeStrings.insert(content.get_str());
+				// (!) We need finding this string and setting the pointer to it
+				// if I would just set the pointer to an other get_str that
+				// would be invalid. We store the std::strings only so that
+				// memory release happens properly later!!!
+				text = (char*)(*treeStrings.find(content.get_str())).c_str();
 			}
 
 			// Add this new node as our children to the parent
@@ -541,10 +568,10 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 			}
 		} else {
 			// We are parsing a normal node and the read head is on the first letter of the name
-			// Parse node name and node body (the hexes for it)!
-			// Set the newly parsed node as the new current parent by returning it!
+			// Parse node name and possibly the node body (the hexes for it)!
+			// Also set the newly parsed node as the new current parent by returning it when it is not an empty leaf node!
 			
-			// Let us try to find the contents then...
+			// Let us try to find the contents - first the node name - then...
 			fio::LenString lsNodeName;
 
 			// This will hold the current character
@@ -554,15 +581,21 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 			void* seamHandle = input.markSeam();
 			// Initialize closes flag. EOF surely closes (should not happen though)
 			bool nodeNameParsed = ((current == EOF));
+			// Also we count this as an empty leaf if we have gotten EOF here (should not happen though)
+			bool isEmptyLeaf = ((current == EOF));	// This just becomes 'false' in any case the code is not broken!
 			// Loop and parse the text contents of this node
 			while(!nodeNameParsed) {
 				// Advance the input read head
 				input.advance();
 				// Read the next character
 				current = input.grabCurr();
-				// If we have found the open node '{' char, or EOF we reach end of the name
+				// When the current char becomes a whitespace that means that this node does not have
+				// the '{...}' part and is an empty leaf node. Useful for compactness and when the parser
+				// is used for various unusual reasons like parsing forth-like words and such.
+				isEmptyLeaf = isspace(current);
+				// If we have found the open node '{' char, empty leaf or EOF we reach end of the name
 				// when EOF is found that is basically an error that we silently try to handle somehow.
-				if((current == SYM_OPEN_NODE) || (current == EOF)) {
+				if((current == SYM_OPEN_NODE) || (current == EOF) || isEmptyLeaf) {
 					if(current == EOF) {
 						// Syntax error - no opening tag after tag name!
 						return nullptr;
@@ -574,62 +607,87 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 				}
 			}
 
-			// The read head is on the SYM_OPEN_NODE character now so we need to
-			// advance so that we are on the first possible hex-data char...
-			input.advance();
+			// Empty leaves does not have the '{' opener, 
+			// so do not even try to advance over that in that case!
+			if(!isEmptyLeaf) {
+				// The read head is on the SYM_OPEN_NODE character now so we need to
+				// advance so that we are on the first possible hex-data char...
+				input.advance();
 
-			// We should still have data
-			if(input.grabCurr() == EOF) {
-				// Just another kind of syntax error
-				// We just do something so that operation is not undefined..
-				return nullptr;
+				// We should still have data
+				if(input.grabCurr() == EOF) {
+					// Just another kind of syntax error
+					// We just do something so that operation is not undefined..
+					return nullptr;
+				}
 			}
 
 			// Get the text of this node name
 			char* nodeName = nullptr;
-			if(input.isSupportingDangerousDestructiveOperations()) {
+			// In case of empty leaves we cannot use the optimization as there is no "useless" character
+			// for overriding with the '\0' char! If we are not an empty leaf, we can override the '{' safely...
+			if(!isEmptyLeaf && useOptimizedButHackyStringReferences && input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				// this works as the '{' character will be overridden
 				nodeName = lsNodeName.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
-#ifdef DEBUG_LOG
-printf("(!) Found sub-node with name: %s below %s(%u)\n", nodeName, parent->core.name, (unsigned int)parent);
-#endif
 			} else {
-				// FIXME: Support escaping - at least for the '}' character
-				// FIXME: Create null terminated c_str from the LenString
-				fprintf(stderr, "FIXME: implement slower and safe operations!");
+				// Create std::string from the LenString and
+				// store it in the local set of strings we have in the tree.
+				// This way the tree owns these copies as it should be.
+				treeStrings.insert(lsNodeName.get_str());
+				// (!) We need finding this string and setting the pointer to it
+				// if I would just set the pointer to an other get_str that
+				// would be invalid. We store the std::strings only so that
+				// memory release happens properly later!!!
+				nodeName = (char*)(*treeStrings.find(lsNodeName.get_str())).c_str();
 			}
 
-			// We are now on the first character of a possible hex-data
-			// so what we need to do is to parse the hexes
-			// Rem.: This operation also moves the reading head so
-			//       the head will reide right after the hex-data
-			//       even if there was no hex-data. If however
-			//       the current was not a hex char the read head
-			//       does not move, just we get and empty Hexes!
-			//Hexes subNodeHexes = parseHexes(input);	// better inlined down there!
+			// Empty leafs do not have all the data other cases have
+			if(!isEmptyLeaf) {
+#ifdef DEBUG_LOG
+printf("(!) Found non-empty sub-node with name: %s below %s(%u)\n", nodeName, parent->core.name, (unsigned int)parent);
+#endif
+				// Now we have all the data to build this subnode
+				// and set it as a parent. This must be added as a
+				// child of the current parent and returned so that
+				// childrens can be read up. If this node is completely
+				// empty (like: node{}) this still works the same way!
+				parent->children.push_back(Node{
+						NodeKind::NORM, // normal node type
+						std::move(parseHexes(input)), // inline hexes...
+						nodeName, // set the parsed node name
+						nullptr, // not a text node
+						parent,	// set parent node
+						std::vector<Node> {}	// start with empty children - will collect them later!
+				});
 
-			// Now we have all the data to build this subnode
-			// and set it as a parent. This must be added as a
-			// child of the current parent and returned so that
-			// childrens can be read up. If this node is completely
-			// empty (like: node{}) this still works the same way!
-			parent->children.push_back(Node{
-					NodeKind::NORM, // normal node type
-					std::move(parseHexes(input)), // inline hexes...
-					nodeName, // set the parsed node name
-					nullptr, // not a text node
-					parent,	// set parent node
-					std::vector<Node> {}	// start with empty children
-			});
-
-			
-			// Return the node we just added
-			// "vector.back" just returns the last element
-			// and we get the address for that as our current
-			// parent ptr so that deeper levels have it as parent.
-			// This make us do a depth-first tree walking without recursion
-			return &parent->children.back();
+				// Return the node we just added
+				// "vector.back" just returns the last element
+				// and we get the address for that as our current
+				// parent ptr so that deeper levels have it as parent.
+				// This make us do a depth-first tree walking without recursion
+				return &parent->children.back();
+			} else {
+#ifdef DEBUG_LOG
+printf("(!) Found an empty-leaf sub-node with name: %s below %s(%u)\n", nodeName, parent->core.name, (unsigned int)parent);
+#endif
+				// Now we have all the data to build this subnode
+				// and set it as a parent. This must be added as a
+				// child of the current parent and returned so that
+				// childrens can be read up. If this node is completely
+				// empty (like: node{}) this still works the same way!
+				parent->children.push_back(Node{
+						NodeKind::NORM, // normal node type (just no body and child!)
+						Hexes::EMPTY_HEXES(), // empty hexes
+						nodeName, // set the parsed node name
+						nullptr, // not a text node
+						parent,	// set parent node
+						std::vector<Node> {}	// surely no children - never will be any!
+				});
+				// We can keep the earlier parent as this node was an empty leaf
+				// Further nodes cannot be below an emtpy one of course...
+				return parent;
+			}
 		}
 	}
 };

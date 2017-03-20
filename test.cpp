@@ -35,12 +35,14 @@ void testTbuf(){
 
 	// Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");
-	tbuf::Tree fruit(fin);
+	// The second parameter means we are using crazy optimizations
+	tbuf::Tree fruit(fin, true);
 
 	printf("%s(%u)\n", fruit.root.core.name, fruit.root.core.data.asUint());
 	printf("	%s(%u)\n", fruit.root.children[0].core.name, fruit.root.children[0].core.data.asUint());
-	printf("		%s(%s)\n", fruit.root.children[0].children[0].core.name, fruit.root.children[0].children[0].core.text);
-	printf("	%s(%u)\n", fruit.root.children[1].core.name, fruit.root.children[1].core.data.asUint());
+	printf("		%s(%u)\n", fruit.root.children[0].children[0].core.name, fruit.root.children[0].children[0].core.data.asUint());
+	printf("			%s(%s)\n", fruit.root.children[0].children[0].children[0].core.name, fruit.root.children[0].children[0].children[0].core.text);
+	//printf("	%s(%u)\n", fruit.root.children[1].core.name, fruit.root.children[1].core.data.asUint());
 
 	printf("Fetch testing...\n");
 	int fetchTestOk = 0;

@@ -1,8 +1,14 @@
 0A05
 # This means apple tree in my language
 almafa{
-	# This means apple in my language
-	${alma}
+	branch{
+		# This means apple in my language
+		${alma}
+	}
+	# These branches do not have apple :-(
+	branch
+	branch
+	branch
 }
 
 körtefa{0AB50 # And this means pear-tree :-)
