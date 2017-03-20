@@ -21,11 +21,19 @@ const char SYM_STRING_NODE = '$';
 const char SYM_OPEN_NODE = '{';
 const char SYM_CLOSE_NODE = '}';
 const char SYM_ESCAPE = '\\';	// The "\" is used for escaping in string nodes
+const char SYM_COMMENT = '#';	// Comment until the end of line
 
 const char *SYM_STRING_NODE_STR = "$";
 const char *SYM_OPEN_NODE_STR = "{";
 const char *SYM_CLOSE_NODE_STR = "}";
 const char *SYM_ESCAPE_STR = "\\";	// The "\" is used for escaping in string nodes
+const char *SYM_COMMENT_STR = "#";	// Comment until the end of line
+
+/** Returns true if the character is one of the newlines */
+inline bool isALineEndChar(char c) {
+	// We accept both newline and carriage return
+	return (c == '\r' || c == '\n');
+}
 
 /** Hex-data stream class */
 class Hexes {
@@ -427,6 +435,19 @@ private:
 			// Just advance over whitespaces in most cases 
 			// this does not apply when we are in the middle of a text-node however
 			input.advance();
+			// Return the unchanged parent node as the same
+			return parent;
+		} else if(input.grabCurr() == SYM_COMMENT) {
+			// We have reached a '#' so this line is a comment from now on
+			// because we handle comments here and not in an earlier scanner
+			// or whatever, the '#' in the string nodes do not start a comment and such!
+			// Rem.: We need to take care about what if we run out of input so EOF
+			//       check is necessary here too!
+			while(!isALineEndChar(input.grabCurr()) && (input.grabCurr() != EOF)) {
+				// Advance input
+				input.advance();
+			}
+			// Return the unchanged parent node as the same
 			return parent;
 		} else if(input.grabCurr() == SYM_STRING_NODE) {
 			// Parse '$' symbol tag with string inside - this is always a leaf!

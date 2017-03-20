@@ -1,14 +1,17 @@
 0A05
-
+# This means apple tree in my language
 almafa{
+	# This means apple in my language
 	${alma}
 }
 
-körtefa{0AB50
+körtefa{0AB50 # And this means pear-tree :-)
 }
 
-egy{ketto{harom{FF}}}hololo{${haijojo}}
+egy{ketto{harom{FF}}}hololo{${haijojo}}# one two tree and wise words of the age of empires priest haha
 
+# For testing ad-hoc polymorphism
+# using prefix fitting:
 fruit_apple{${alma}}
 fruit_banana{${banán}}
 fruit_raspberry{${pi}}
