@@ -18,6 +18,6 @@ egy{ketto{harom{FF}}}hololo{${haijojo}}# one two tree and wise words of the age 
 
 # For testing ad-hoc polymorphism
 # using prefix fitting:
-fruit_apple{${alma}}
-fruit_banana{${banán}}
-fruit_raspberry{${pi}}
+fruit_apple{$_var{alma}}
+fruit_banana{$_var{banán}}
+fruit_raspberry{$_device{pi}}

@@ -24,6 +24,7 @@ const char SYM_CLOSE_NODE = '}';
 const char SYM_ESCAPE = '\\';	// The "\" is used for escaping in string nodes
 const char SYM_COMMENT = '#';	// Comment until the end of line
 
+const char *SYM_STRING_NODE_CLASS_STR = "$_"; // Any $ and $_something nodes!
 const char *SYM_STRING_NODE_STR = "$";
 const char *SYM_OPEN_NODE_STR = "{";
 const char *SYM_CLOSE_NODE_STR = "}";
@@ -359,7 +360,7 @@ class Tree {
 public:
 	/** Name for implicit root nodes */
 	const char *rootNodeName = "/";	// This name is special as it can be '/' only for the root - see tbnf description!
-	const char *textNodeName = "$"; // This name is special. We use this directly instead of pointing into the buffers...
+	//const char *textNodeName = "$"; // This name is special. We use this directly instead of pointing into the buffers...
 
 	/** The root node for this tree */
 	Node root;
@@ -470,20 +471,44 @@ private:
 			return parent;
 		} else if(input.grabCurr() == SYM_STRING_NODE) {
 			// Parse '$' symbol tag with string inside - this is always a leaf!
-			// advance onto the '{' by skipping anything in-between
-			// this way we can later add various types of string nodes by adding
-			// a type name after the '$' in the protocol!
+			// advance onto the '{' collecting the node name in-between this
+			// way we can have various 'types' or 'variations' of string nodes
+			// by adding a type name after the '$' in the protocol!
+			void* nameSeamHandle = input.markSeam();	// Mark seam for node name!
 			while(input.grabCurr() != SYM_OPEN_NODE) {
 				// Input sanity check
 				if(input.grabCurr() == EOF) {
 					// Completely depleted input: finish parsing
 					// happens on badly formatted input...
+					// Rem.: We grab from seam here only to ensure mark/grab pairing!
+					input.grabFromSeamToLast(nameSeamHandle);
 					return nullptr;
 				} else {
 					// advance to find the node opening
 					input.advance();
 				}
 			}
+			// Grab name of the text node
+			fio::LenString lsName = input.grabFromSeamToLast(nameSeamHandle);
+			char* textNodeName = nullptr;
+			if(useOptimizedButHackyStringReferences && input.isSupportingDangerousDestructiveOperations()) {
+				// Create null terminated c_str from the LenString
+				textNodeName = lsName.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
+			} else {
+				// Create std::string from the LenString and
+				// store it in the local set of strings we have in the tree.
+				// This way the tree owns these copies as it should be.
+				treeStrings.insert(lsName.get_str());
+				// (!) We need finding this string and setting the pointer to it
+				// if I would just set the pointer to an other get_str that
+				// would be invalid. We store the std::strings only so that
+				// memory release happens properly later!!!
+				textNodeName = (char*)(*treeStrings.find(lsName.get_str())).c_str();
+			}
+#ifdef DEBUG_LOG
+printf("(..) Found text-node with name: %s below %s(%u)\n", textNodeName, parent->core.name, (unsigned int)parent);
+#endif
+
 			// Let us try to find the contents then...
 			fio::LenString content;
 			// Go after the '{' - we are now in the inside of the node
@@ -515,9 +540,6 @@ private:
 			if(useOptimizedButHackyStringReferences && input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
-#ifdef DEBUG_LOG
-printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsigned int)parent);
-#endif
 				// Support escaping - at least for the '}' character
 				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
 			} else {
@@ -533,6 +555,9 @@ printf("(!) Found text-node: %s below %s(%u)\n", text, parent->core.name, (unsig
 				// memory release happens properly later!!!
 				text = (char*)(*treeStrings.find(content.get_str())).c_str();
 			}
+#ifdef DEBUG_LOG
+printf("(!) text-node content is: %s below %s(%u)\n", text, parent->core.name, (unsigned int)parent);
+#endif
 
 			// Add this new node as our children to the parent
 			parent->children.push_back(Node{

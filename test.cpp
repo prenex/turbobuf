@@ -78,7 +78,7 @@ void testTbuf(){
 				// The third fruit_* should be chosen for descending
 				tbuf::LevelDescender("fruit", 2, true),
 				// and descending into its text node
-				tbuf::LevelDescender(tbuf::SYM_STRING_NODE_STR),
+				tbuf::LevelDescender(tbuf::SYM_STRING_NODE_STR, 0, true),
 			},
 			[&fetchTestOk] (tbuf::NodeCore &nc) {
 				// should print out "pi" as text:
@@ -86,7 +86,7 @@ void testTbuf(){
 				++fetchTestOk; // we should have found this...
 			});
 	tbuf::TreeQuery::fetch(fruit.root,
-			{"notexistent", tbuf::SYM_STRING_NODE_STR},
+			{"notexistent", tbuf::SYM_STRING_NODE_CLASS_STR},
 			[&fetchTestOk] (tbuf::NodeCore &nc) {
 				// Nothing should get printed here: 
 				printf("FIXME: either test input or code is broken! %s\n", nc.text);
