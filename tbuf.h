@@ -142,7 +142,7 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 		dfs_preorder_impl(visitor, 0);
 	}
 
-	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is preorder. */
+	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is postorder. */
 	void dfs_postorder(std::function<void (NodeCore &node, unsigned int depth)> visitor) {
 		dfs_postorder_impl(visitor, 0);
 	}
