@@ -22,21 +22,21 @@ int main(){
 	return 0;
 }
 
-static unsigned int lastDepth = 0; // Needed for putting up the closing '}' chars!
+static unsigned int lastWoDepth = 0; // Needed for putting up the closing '}' chars!
 // Rem.: Better make this inlined so that the optimizer can take out the ifs for pretty-printing!
-inline void writeBackFun(tbuf::NodeCore& nc, unsigned int depth, bool prettyPrint = true){
+inline void writeOutFun(tbuf::NodeCore& nc, unsigned int depth, bool prettyPrint = true){
 	// Possibly close earlier node (see that this handles root properly too!)
 	if(prettyPrint && (depth > 0)) printf("\n");
-	while((depth != 0) && (lastDepth >= depth)) {
-		//printf("::%d:%d::", lastDepth, depth);
-		if(prettyPrint && (lastDepth > 0)) {
-			for(unsigned int i = 0; i < lastDepth-1; ++i) {
+	while((depth != 0) && (lastWoDepth >= depth)) {
+		//printf("::%d:%d::", lastWoDepth, depth);
+		if(prettyPrint && (lastWoDepth > 0)) {
+			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
 				printf("\t");
 			}
 		}
 		printf("}");
 		if(prettyPrint) printf("\n");
-		--lastDepth;
+		--lastWoDepth;
 	}
 	// Indentation
 	if(prettyPrint && (depth > 0)) {
@@ -57,16 +57,38 @@ inline void writeBackFun(tbuf::NodeCore& nc, unsigned int depth, bool prettyPrin
 		// Text-node - show text
 		printf("%s", nc.text);
 	}
-	lastDepth = depth;
+	lastWoDepth = depth;
 }
 
 // Visitors for writing out the nodes returned by a DFS
-inline void writeBackPrettyVisitor(tbuf::NodeCore& nc, unsigned int depth){
-	writeBackFun(nc, depth, true); // Pretty-printing visitor
+inline void writeOutPrettyVisitor(tbuf::NodeCore& nc, unsigned int depth){
+	writeOutFun(nc, depth, true); // Pretty-printing visitor
 }
-inline void writeBackVisitor(tbuf::NodeCore& nc, unsigned int depth){
-	writeBackFun(nc, depth, false); // No pretty-printing visitor
+inline void writeOutVisitor(tbuf::NodeCore& nc, unsigned int depth){
+	writeOutFun(nc, depth, false); // No pretty-printing visitor
 }
+
+/** Usefule when writing out a subtree below root */
+inline void writeOut(tbuf::Node& root, bool prettyPrint = true) {
+	lastWoDepth = 0;
+	if(prettyPrint) {
+		root.dfs_preorder(writeOutPrettyVisitor);
+	} else {
+		root.dfs_preorder(writeOutVisitor);
+	}
+	while(lastWoDepth > 0) {
+		//printf("::%d:%d::", lastWoDepth, depth);
+		if(prettyPrint && (lastWoDepth > 0)) {
+			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
+				printf("\t");
+			}
+		}
+		printf("}");
+		if(prettyPrint) printf("\n");
+		--lastWoDepth;
+	}
+}
+
 
 void testTbuf(){
 	printf("Trying to read from in.txt...\n");
@@ -165,26 +187,7 @@ void testTbuf(){
 
 	// Writeback-pretty-printing the tree using dfs
 	printf("Writeback-pretty-printing tree and testing DFS:\n");
-
-	bool prettyPrint = true;
-
-	if(prettyPrint) {
-		fruit.root.dfs_preorder(writeBackPrettyVisitor);
-	} else {
-		fruit.root.dfs_preorder(writeBackVisitor);
-	}
-	while(lastDepth > 0) {
-		//printf("::%d:%d::", lastDepth, depth);
-		if(prettyPrint && (lastDepth > 0)) {
-			for(unsigned int i = 0; i < lastDepth-1; ++i) {
-				printf("\t");
-			}
-		}
-		printf("}");
-		if(prettyPrint) printf("\n");
-		--lastDepth;
-	}
-
+	writeOut(fruit.root);
 
 	printf("End of testing\n");
 }
