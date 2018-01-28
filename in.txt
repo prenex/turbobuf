@@ -8,7 +8,7 @@ almafa{
 	# These branches do not have apple :-(
 	branch
 	branch
-	branch
+	branch branch
 }
 
 körtefa{0AB50 # And this means pear-tree :-)

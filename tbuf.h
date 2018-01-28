@@ -152,7 +152,6 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 		// Values and variables for proper indicator bits handling across callbacks in the preorder...
 		// "VALUES"
 		const unsigned int CLEAR_BITS = 0;
-		const unsigned int LEAF_WITH_EMPTY_DATA = 3;
 		// BITS
 		const unsigned int LEAF_BIT = 1;
 		const unsigned int EMPTY_DATA_BIT = 2;
@@ -169,6 +168,7 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 				if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
 			}
 			bool needIndent = ((lastBits & LEAF_BIT) == 0);	// handle leafs well: close them on the same line simply!
+			bool needCloser = ((lastBits & EMPTY_DATA_BIT) == 0); // handle empty-data leafs well: they have no opener!
 			while((depth != 0) && (lastWoDepth >= depth)) {
 				if(needIndent) {
 					if(prettyPrint && (lastWoDepth > 0)) {	// for others, we close on a separate line tabbed well!
@@ -177,7 +177,9 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 						}
 					}
 				} else { needIndent = true; } // Only the first closing should happen the same line - others not!!!
-				fprintf(destFile, "}");
+				if(needCloser) {
+					fprintf(destFile, "}");
+				} else { needCloser = true; } // Only the first closer can be omitted as others must have childres (us)
 				if(prettyPrint) fprintf(destFile, "\n");
 				--lastWoDepth;
 			}
@@ -189,7 +191,21 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 			}
 			// Tree data
 			// name is only needed if the depth is non-zero
-			if(depth > 0) { fprintf(destFile, "%s{", nc.name); }
+			if(depth > 0) {
+				fprintf(destFile, "%s", nc.name);
+				// Omit the opening { for empty-data leaf nodes - they better just written as the name and nothing else
+				// - because that is the shortest representation and also makes sense on prettyPrint==true!
+				// Rem.: Many times these empty-data leaves act semantically as "words" so it makes semantic sense too!
+				//       Words (like forth words and such) don't used to have any '{' and '}' parentheses didn't they?
+				bool needOpener = !((nc.text == nullptr) && (nc.data.isEmpty()) && leaf);
+				if(needOpener) {
+					fprintf(destFile, "{");
+				} else if (!prettyPrint) {
+					// This is here to ensure the leaf nodes / "words" with empty data does not "stick together"
+					// That is: we need to separate them at least by one space character each otherwise we fsck up!!!
+					fprintf(destFile, " ");
+				}
+			}
 			if(nc.text == nullptr) {
 				// Normal node - show data as uint
 				// (if there is any data)
@@ -213,6 +229,7 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 			if(prettyPrint && (lastWoDepth > 0)) fprintf(destFile, "\n");
 		}
 		bool needIndent = ((lastBits & LEAF_BIT) == 0);	// handle leafs well: close them on the same line simply!
+		bool needCloser = ((lastBits & EMPTY_DATA_BIT) == 0); // handle empty-data leafs well: they have no opener!
 		while(lastWoDepth > 0) {
 			if(needIndent) {
 				if(prettyPrint && (lastWoDepth > 0)) {
@@ -221,7 +238,9 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 					}
 				}
 			} else { needIndent = true; } // Only the first closing should happen the same line - others not!!!
-			fprintf(destFile, "}");
+			if(needCloser) {
+				fprintf(destFile, "}");
+			} else { needCloser = true; } // Only the first closer can be omitted as others must have childres (us)
 			if(prettyPrint) fprintf(destFile, "\n");
 			--lastWoDepth;
 		}
