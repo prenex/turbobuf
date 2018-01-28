@@ -166,6 +166,18 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 			// - If the last call was to a leaf, do not do anything however as we close leaves always on the same line!!!
 			if((lastBits & LEAF_BIT) == 0) {
 				if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
+			} else if(((lastBits & EMPTY_DATA_BIT) != 0) && !prettyPrint) {
+				// Insert a space char to 'close' and earlier empty-data leaf
+				// This is here to ensure the leaf nodes / "words" with empty data does not "stick together"
+				// That is: we need to separate them at least by one space character each otherwise we have problem!!!
+
+				// We only do this if when we get to the same level so there can be more children.
+				// If that is not true, we can be sure that we are a children of a parent node
+				// and that parent node will be "closed" or is the root so we do not need any more
+				// separating ' ' (space) characters in non-pretty-printed cases for closing empty-data leaves!
+				if((depth != 0) && (lastWoDepth == depth)) {
+					fprintf(destFile, " ");
+				}
 			}
 			bool needIndent = ((lastBits & LEAF_BIT) == 0);	// handle leafs well: close them on the same line simply!
 			bool needCloser = ((lastBits & EMPTY_DATA_BIT) == 0); // handle empty-data leafs well: they have no opener!
@@ -200,10 +212,6 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 				bool needOpener = !((nc.text == nullptr) && (nc.data.isEmpty()) && leaf);
 				if(needOpener) {
 					fprintf(destFile, "{");
-				} else if (!prettyPrint) {
-					// This is here to ensure the leaf nodes / "words" with empty data does not "stick together"
-					// That is: we need to separate them at least by one space character each otherwise we fsck up!!!
-					fprintf(destFile, " ");
 				}
 			}
 			if(nc.text == nullptr) {
