@@ -101,12 +101,15 @@ void testTbuf(){
 
 	// Pretty-print the tree using dfs
 	printf("Custom pretty-printing of the tree and testing DFS:\n");
-	fruit.root.dfs_preorder([] (tbuf::NodeCore& nc, unsigned int depth){
+	fruit.root.dfs_preorder([] (tbuf::NodeCore& nc, unsigned int depth, bool leaf){
 			// Indentation
 			for(unsigned int i = 0; i < depth; ++i) {
 				printf("\t");
 			}
 			// Tree data
+			if(leaf) {
+				printf("*"); // Indicate leaf nodes somehow...
+			}
 			printf("%s(", nc.name);
 			if(nc.text == nullptr) {
 				// Normal node - show data as uint

@@ -135,32 +135,48 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 	}
 
 	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is preorder. */
-	inline void dfs_preorder(std::function<void (NodeCore &node, unsigned int depth)> visitor) {
+	inline void dfs_preorder(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor) {
 		dfs_preorder_impl(visitor, 0);
 	}
 
 	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is postorder. */
-	inline void dfs_postorder(std::function<void (NodeCore &node, unsigned int depth)> visitor) {
+	inline void dfs_postorder(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor) {
 		dfs_postorder_impl(visitor, 0);
 	}
 
 	/** Useful when writing out a subtree below root into a file. Default file is stdout. */
 	inline void writeOut(FILE *destFile = stdout, bool prettyPrint = true) {
 		// This needs to be shared (in order to properly close the still open nodes in the end)
-		unsigned int lastWoDepth = 0;
+		unsigned int lastWoDepth = 0; // Last depth
 
-		// Write out using a simple DFS
+		// Values and variables for proper indicator bits handling across callbacks in the preorder...
+		// "VALUES"
+		const unsigned int CLEAR_BITS = 0;
+		const unsigned int LEAF_WITH_EMPTY_DATA = 3;
+		// BITS
+		const unsigned int LEAF_BIT = 1;
+		const unsigned int EMPTY_DATA_BIT = 2;
+		// Indicates stuff: like if on last call we have found a leaf (or not) and if the leaf was empty - useful when closing '}'s!
+		unsigned int lastBits = CLEAR_BITS; // Set to CLEAR_BITS because there was no earlier node at the start!!!
+
+		// Write out using a simple DFS - this do everything except closing the last few '}' chars (because calls end)
 		// Rem.: prettyPrint and destFile (ptr) can be just a capture by copy,
 		//       but the lastWoDepth needs to be changed by the lambda!!!
-		this->dfs_preorder([prettyPrint, destFile, &lastWoDepth](tbuf::NodeCore& nc, unsigned int depth){
+		this->dfs_preorder([prettyPrint, destFile, &lastWoDepth, &lastBits](tbuf::NodeCore& nc, unsigned int depth, bool leaf){
 			// Possibly close earlier node (see that this handles root properly too!)
-			if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
+			// - If the last call was to a leaf, do not do anything however as we close leaves always on the same line!!!
+			if((lastBits & LEAF_BIT) == 0) {
+				if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
+			}
+			bool needIndent = ((lastBits & LEAF_BIT) == 0);	// handle leafs well: close them on the same line simply!
 			while((depth != 0) && (lastWoDepth >= depth)) {
-				if(prettyPrint && (lastWoDepth > 0)) {
-					for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-						fprintf(destFile, "\t");
+				if(needIndent) {
+					if(prettyPrint && (lastWoDepth > 0)) {	// for others, we close on a separate line tabbed well!
+						for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
+							fprintf(destFile, "\t");
+						}
 					}
-				}
+				} else { needIndent = true; } // Only the first closing should happen the same line - others not!!!
 				fprintf(destFile, "}");
 				if(prettyPrint) fprintf(destFile, "\n");
 				--lastWoDepth;
@@ -185,16 +201,26 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 				fprintf(destFile, "%s", nc.text);
 			}
 			lastWoDepth = depth;
+
+			// Indicate stuff from this run (so the next callback nows)
+			lastBits = leaf ? LEAF_BIT : CLEAR_BITS; // Set leafness for the next one
+			if((nc.text == nullptr) && (nc.data.isEmpty())) lastBits += EMPTY_DATA_BIT;
 		});
 
 		// We need to do this here to close the still opened nodes with extra '}' chars!
-		if(prettyPrint && (lastWoDepth > 0)) fprintf(destFile, "\n");
+		// - If the last call was to a leaf, do not do anything however as we close leaves always on the same line!!!
+		if((lastBits & LEAF_BIT) == 0) {
+			if(prettyPrint && (lastWoDepth > 0)) fprintf(destFile, "\n");
+		}
+		bool needIndent = ((lastBits & LEAF_BIT) == 0);	// handle leafs well: close them on the same line simply!
 		while(lastWoDepth > 0) {
-			if(prettyPrint && (lastWoDepth > 0)) {
-				for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-					fprintf(destFile, "\t");
+			if(needIndent) {
+				if(prettyPrint && (lastWoDepth > 0)) {
+					for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
+						fprintf(destFile, "\t");
+					}
 				}
-			}
+			} else { needIndent = true; } // Only the first closing should happen the same line - others not!!!
 			fprintf(destFile, "}");
 			if(prettyPrint) fprintf(destFile, "\n");
 			--lastWoDepth;
@@ -203,22 +229,22 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 
 private:
 	// Recursive dfs for preorder
-	inline void dfs_preorder_impl(std::function<void (NodeCore &node, unsigned int depth)> visitor, unsigned int depth) {
+	inline void dfs_preorder_impl(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
 		// Visit
-		visitor(this->core, depth);
+		visitor(this->core, depth, this->children.size() == 0);
 		// recurse
 		for(int i = 0; i < this->children.size(); ++i) {
 			children[i].dfs_preorder_impl(visitor, depth + 1);
 		}
 	}
 	// Recursive dfs for postorder
-	inline void dfs_postorder_impl(std::function<void (NodeCore &node, unsigned int depth)> visitor, unsigned int depth) {
+	inline void dfs_postorder_impl(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
 		// recurse
 		for(int i = 0; i < this->children.size(); ++i) {
 			children[i].dfs_preorder_impl(visitor, depth + 1);
 		}
 		// Visit
-		visitor(this->core, depth);
+		visitor(this->core, depth, this->children.size() == 0);
 	}
 };
 
