@@ -22,44 +22,44 @@ int main(){
 	return 0;
 }
 
-/** Useful when writing out a subtree below root */
-inline void writeOut(tbuf::Node& root, bool prettyPrint = true) {
+/** Useful when writing out a subtree below root into a file. Default file is stdout. */
+inline void writeOut(tbuf::Node& root, FILE *destFile = stdout, bool prettyPrint = true) {
 	// This needs to be shared (in order to properly close the still open nodes in the end)
 	unsigned int lastWoDepth = 0;
 
 	// Write out using a simple DFS
-	// Rem.: prettyPrint can be just a capture by copy, but the lastWoDepth needs to be changed by the lambda!!!
-	root.dfs_preorder([prettyPrint, &lastWoDepth](tbuf::NodeCore& nc, unsigned int depth){
+	// Rem.: prettyPrint and destFile (ptr) can be just a capture by copy, but the lastWoDepth needs to be changed by the lambda!!!
+	root.dfs_preorder([prettyPrint, destFile, &lastWoDepth](tbuf::NodeCore& nc, unsigned int depth){
 		// Possibly close earlier node (see that this handles root properly too!)
-		if(prettyPrint && (depth > 0)) printf("\n");
+		if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
 		while((depth != 0) && (lastWoDepth >= depth)) {
 			if(prettyPrint && (lastWoDepth > 0)) {
 				for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-					printf("\t");
+					fprintf(destFile, "\t");
 				}
 			}
-			printf("}");
-			if(prettyPrint) printf("\n");
+			fprintf(destFile, "}");
+			if(prettyPrint) fprintf(destFile, "\n");
 			--lastWoDepth;
 		}
 		// Indentation
 		if(prettyPrint && (depth > 0)) {
 			for(unsigned int i = 0; i < depth-1; ++i) {
-				printf("\t");
+				fprintf(destFile, "\t");
 			}
 		}
 		// Tree data
 		// name is only needed if the depth is non-zero
-		if(depth > 0) { printf("%s{", nc.name); }
+		if(depth > 0) { fprintf(destFile, "%s{", nc.name); }
 		if(nc.text == nullptr) {
 			// Normal node - show data as uint
 			// (if there is any data)
 			if(!nc.data.isEmpty()) {
-				printf("%X", nc.data.asUint());
+				fprintf(destFile, "%X", nc.data.asUint());
 			}
 		} else {
 			// Text-node - show text
-			printf("%s", nc.text);
+			fprintf(destFile, "%s", nc.text);
 		}
 		lastWoDepth = depth;
 	});
@@ -68,11 +68,11 @@ inline void writeOut(tbuf::Node& root, bool prettyPrint = true) {
 	while(lastWoDepth > 0) {
 		if(prettyPrint && (lastWoDepth > 0)) {
 			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-				printf("\t");
+				fprintf(destFile, "\t");
 			}
 		}
-		printf("}");
-		if(prettyPrint) printf("\n");
+		fprintf(destFile, "}");
+		if(prettyPrint) fprintf(destFile, "\n");
 		--lastWoDepth;
 	}
 }
