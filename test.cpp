@@ -22,63 +22,6 @@ int main(){
 	return 0;
 }
 
-/** Useful when writing out a subtree below root into a file. Default file is stdout. */
-inline void writeOut(tbuf::Node& root, FILE *destFile = stdout, bool prettyPrint = true) {
-	// This needs to be shared (in order to properly close the still open nodes in the end)
-	unsigned int lastWoDepth = 0;
-
-	// Write out using a simple DFS
-	// Rem.: prettyPrint and destFile (ptr) can be just a capture by copy, but the lastWoDepth needs to be changed by the lambda!!!
-	root.dfs_preorder([prettyPrint, destFile, &lastWoDepth](tbuf::NodeCore& nc, unsigned int depth){
-		// Possibly close earlier node (see that this handles root properly too!)
-		if(prettyPrint && (depth > 0)) fprintf(destFile, "\n");
-		while((depth != 0) && (lastWoDepth >= depth)) {
-			if(prettyPrint && (lastWoDepth > 0)) {
-				for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-					fprintf(destFile, "\t");
-				}
-			}
-			fprintf(destFile, "}");
-			if(prettyPrint) fprintf(destFile, "\n");
-			--lastWoDepth;
-		}
-		// Indentation
-		if(prettyPrint && (depth > 0)) {
-			for(unsigned int i = 0; i < depth-1; ++i) {
-				fprintf(destFile, "\t");
-			}
-		}
-		// Tree data
-		// name is only needed if the depth is non-zero
-		if(depth > 0) { fprintf(destFile, "%s{", nc.name); }
-		if(nc.text == nullptr) {
-			// Normal node - show data as uint
-			// (if there is any data)
-			if(!nc.data.isEmpty()) {
-				fprintf(destFile, "%X", nc.data.asUint());
-			}
-		} else {
-			// Text-node - show text
-			fprintf(destFile, "%s", nc.text);
-		}
-		lastWoDepth = depth;
-	});
-
-	// We need to do this here to close the still opened nodes with extra '}' chars!
-	if(prettyPrint && (lastWoDepth > 0)) fprintf(destFile, "\n");
-	while(lastWoDepth > 0) {
-		if(prettyPrint && (lastWoDepth > 0)) {
-			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
-				fprintf(destFile, "\t");
-			}
-		}
-		fprintf(destFile, "}");
-		if(prettyPrint) fprintf(destFile, "\n");
-		--lastWoDepth;
-	}
-}
-
-
 void testTbuf(){
 	printf("Trying to read from in.txt...\n");
 	// Read data from input
@@ -175,8 +118,10 @@ void testTbuf(){
 	});
 
 	// Writeback-pretty-printing the tree using dfs
-	printf("Writeback-pretty-printing tree and testing DFS:\n");
-	writeOut(fruit.root);
+	printf("Test writeOut - with pretty-printing:\n");
+	fruit.root.writeOut();
+	printf("Test writeOut - dense printing:\n");
+	fruit.root.writeOut(stdout, false);
 
 	printf("End of testing\n");
 }
