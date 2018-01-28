@@ -47,6 +47,10 @@ public:
 		return result;
 	}
 
+	inline bool isEmpty() {
+		return (digits.length == 0);
+	}
+
 	/** Converts a character of [0..9] or [A..F] to its [0..15] integer range */
 	inline static char hexValueOf(char hex) {
 		if('A' <= hex && hex <= 'F') {

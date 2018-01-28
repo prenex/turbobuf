@@ -3,7 +3,7 @@
 # This protocol is basically:
 #  - A stream of hex digits (represented as one readable character each)
 #  - Arranged into a tree by identifiers and '{', '}'
-#  - With possibility for a special UTF8 plain text content node for real texts
+#  - With possibility for special UTF8 plain text content nodes for real texts
 #
 # As every turbobuf sentence is a tree, parsing is trivial, however we can
 # create further tbnf descriptors to define a subprotocol and then we can
@@ -28,10 +28,10 @@
 
 # A hexadecimal digit as the basic building block
 hex::=[0..9A..F]
-# Elemental UTF8 string container tree-node
+# Elemental UTF8 string container tree-nodes. Either named or not named.
 # Escape character is '\'
 # the followings are escaped: '\', '{', '}'
-msg::=${<ESCAPED_UTF8*>}
+msg::=${<ESCAPED_UTF8*>} | $_nam{<ESCAPED_UTF8>*}
 # Elemental identifier names
 nam::=[a..z][a..z0..9_]*
 

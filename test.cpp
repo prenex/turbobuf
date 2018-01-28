@@ -22,6 +22,52 @@ int main(){
 	return 0;
 }
 
+static unsigned int lastDepth = 0; // Needed for putting up the closing '}' chars!
+// Rem.: Better make this inlined so that the optimizer can take out the ifs for pretty-printing!
+inline void writeBackFun(tbuf::NodeCore& nc, unsigned int depth, bool prettyPrint = true){
+	// Possibly close earlier node (see that this handles root properly too!)
+	if(prettyPrint && (depth > 0)) printf("\n");
+	while((depth != 0) && (lastDepth >= depth)) {
+		//printf("::%d:%d::", lastDepth, depth);
+		if(prettyPrint && (lastDepth > 0)) {
+			for(unsigned int i = 0; i < lastDepth-1; ++i) {
+				printf("\t");
+			}
+		}
+		printf("}");
+		if(prettyPrint) printf("\n");
+		--lastDepth;
+	}
+	// Indentation
+	if(prettyPrint && (depth > 0)) {
+		for(unsigned int i = 0; i < depth-1; ++i) {
+			printf("\t");
+		}
+	}
+	// Tree data
+	// name is only needed if the depth is non-zero
+	if(depth > 0) { printf("%s{", nc.name); }
+	if(nc.text == nullptr) {
+		// Normal node - show data as uint
+		// (if there is any data)
+		if(!nc.data.isEmpty()) {
+			printf("%X", nc.data.asUint());
+		}
+	} else {
+		// Text-node - show text
+		printf("%s", nc.text);
+	}
+	lastDepth = depth;
+}
+
+// Visitors for writing out the nodes returned by a DFS
+inline void writeBackPrettyVisitor(tbuf::NodeCore& nc, unsigned int depth){
+	writeBackFun(nc, depth, true); // Pretty-printing visitor
+}
+inline void writeBackVisitor(tbuf::NodeCore& nc, unsigned int depth){
+	writeBackFun(nc, depth, false); // No pretty-printing visitor
+}
+
 void testTbuf(){
 	printf("Trying to read from in.txt...\n");
 	// Read data from input
@@ -100,7 +146,7 @@ void testTbuf(){
 	*/
 
 	// Pretty-print the tree using dfs
-	printf("Pretty-printing tree and testing DFS:\n");
+	printf("Custom pretty-printing of the tree and testing DFS:\n");
 	fruit.root.dfs_preorder([] (tbuf::NodeCore& nc, unsigned int depth){
 			// Indentation
 			for(unsigned int i = 0; i < depth; ++i) {
@@ -116,6 +162,29 @@ void testTbuf(){
 				printf("%s)\n", nc.text);
 			}
 	});
+
+	// Writeback-pretty-printing the tree using dfs
+	printf("Writeback-pretty-printing tree and testing DFS:\n");
+
+	bool prettyPrint = true;
+
+	if(prettyPrint) {
+		fruit.root.dfs_preorder(writeBackPrettyVisitor);
+	} else {
+		fruit.root.dfs_preorder(writeBackVisitor);
+	}
+	while(lastDepth > 0) {
+		//printf("::%d:%d::", lastDepth, depth);
+		if(prettyPrint && (lastDepth > 0)) {
+			for(unsigned int i = 0; i < lastDepth-1; ++i) {
+				printf("\t");
+			}
+		}
+		printf("}");
+		if(prettyPrint) printf("\n");
+		--lastDepth;
+	}
+
 
 	printf("End of testing\n");
 }

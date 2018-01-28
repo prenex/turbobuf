@@ -70,9 +70,6 @@ struct LevelDescender {
 	// Should be explicit to avoid surprises when conversions apply
 	explicit LevelDescender(const char* descriptor_cstr) : targetIndex{0}, adHocPolymorph{false} {
 		// FIXME: fix this so that we do not only handle the simple cases!
-#ifdef DEBUG_LOG
-printf(" --- Level descender is being built out of: %s\n", descriptor_cstr);
-#endif
 		targetName = descriptor_cstr; // uses string copy construction from cstr
 	}
 };
