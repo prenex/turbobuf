@@ -22,62 +22,50 @@ int main(){
 	return 0;
 }
 
-static unsigned int lastWoDepth = 0; // Needed for putting up the closing '}' chars!
-// Rem.: Better make this inlined so that the optimizer can take out the ifs for pretty-printing!
-inline void writeOutFun(tbuf::NodeCore& nc, unsigned int depth, bool prettyPrint = true){
-	// Possibly close earlier node (see that this handles root properly too!)
-	if(prettyPrint && (depth > 0)) printf("\n");
-	while((depth != 0) && (lastWoDepth >= depth)) {
-		//printf("::%d:%d::", lastWoDepth, depth);
-		if(prettyPrint && (lastWoDepth > 0)) {
-			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
+/** Useful when writing out a subtree below root */
+inline void writeOut(tbuf::Node& root, bool prettyPrint = true) {
+	// This needs to be shared (in order to properly close the still open nodes in the end)
+	unsigned int lastWoDepth = 0;
+
+	// Write out using a simple DFS
+	// Rem.: prettyPrint can be just a capture by copy, but the lastWoDepth needs to be changed by the lambda!!!
+	root.dfs_preorder([prettyPrint, &lastWoDepth](tbuf::NodeCore& nc, unsigned int depth){
+		// Possibly close earlier node (see that this handles root properly too!)
+		if(prettyPrint && (depth > 0)) printf("\n");
+		while((depth != 0) && (lastWoDepth >= depth)) {
+			if(prettyPrint && (lastWoDepth > 0)) {
+				for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
+					printf("\t");
+				}
+			}
+			printf("}");
+			if(prettyPrint) printf("\n");
+			--lastWoDepth;
+		}
+		// Indentation
+		if(prettyPrint && (depth > 0)) {
+			for(unsigned int i = 0; i < depth-1; ++i) {
 				printf("\t");
 			}
 		}
-		printf("}");
-		if(prettyPrint) printf("\n");
-		--lastWoDepth;
-	}
-	// Indentation
-	if(prettyPrint && (depth > 0)) {
-		for(unsigned int i = 0; i < depth-1; ++i) {
-			printf("\t");
+		// Tree data
+		// name is only needed if the depth is non-zero
+		if(depth > 0) { printf("%s{", nc.name); }
+		if(nc.text == nullptr) {
+			// Normal node - show data as uint
+			// (if there is any data)
+			if(!nc.data.isEmpty()) {
+				printf("%X", nc.data.asUint());
+			}
+		} else {
+			// Text-node - show text
+			printf("%s", nc.text);
 		}
-	}
-	// Tree data
-	// name is only needed if the depth is non-zero
-	if(depth > 0) { printf("%s{", nc.name); }
-	if(nc.text == nullptr) {
-		// Normal node - show data as uint
-		// (if there is any data)
-		if(!nc.data.isEmpty()) {
-			printf("%X", nc.data.asUint());
-		}
-	} else {
-		// Text-node - show text
-		printf("%s", nc.text);
-	}
-	lastWoDepth = depth;
-}
+		lastWoDepth = depth;
+	});
 
-// Visitors for writing out the nodes returned by a DFS
-inline void writeOutPrettyVisitor(tbuf::NodeCore& nc, unsigned int depth){
-	writeOutFun(nc, depth, true); // Pretty-printing visitor
-}
-inline void writeOutVisitor(tbuf::NodeCore& nc, unsigned int depth){
-	writeOutFun(nc, depth, false); // No pretty-printing visitor
-}
-
-/** Usefule when writing out a subtree below root */
-inline void writeOut(tbuf::Node& root, bool prettyPrint = true) {
-	lastWoDepth = 0;
-	if(prettyPrint) {
-		root.dfs_preorder(writeOutPrettyVisitor);
-	} else {
-		root.dfs_preorder(writeOutVisitor);
-	}
+	// We need to do this here to close the still opened nodes with extra '}' chars!
 	while(lastWoDepth > 0) {
-		//printf("::%d:%d::", lastWoDepth, depth);
 		if(prettyPrint && (lastWoDepth > 0)) {
 			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
 				printf("\t");
