@@ -65,6 +65,7 @@ inline void writeOut(tbuf::Node& root, FILE *destFile = stdout, bool prettyPrint
 	});
 
 	// We need to do this here to close the still opened nodes with extra '}' chars!
+	if(prettyPrint && (lastWoDepth > 0)) fprintf(destFile, "\n");
 	while(lastWoDepth > 0) {
 		if(prettyPrint && (lastWoDepth > 0)) {
 			for(unsigned int i = 0; i < lastWoDepth-1; ++i) {
