@@ -95,8 +95,13 @@ enum class NodeKind {
 /**
  * The generic core of a turbo-buf tree-node. Do not cache the values that are owned by the tbuf trees to avoid shooting your leg!
  * This is what the user should see when he is providing callbacks to walk over the tree or get data.
+ *
+ * Keep in mind: better not do anything with the owner tree id here if you create the data on your own! Keep it at zero for most cases!
+ * This represents ownership of the underlying data and the value of zero means it is owned by no tree at all!
  */
+template <unsigned int OwnerTreeId>
 struct NodeCore {
+public:
 	/** Defines the kind of this node */
 	NodeKind nodeKind;
 	/**
@@ -115,7 +120,32 @@ struct NodeCore {
 	 * - MEMORY IS OWNED BY THE TREE! Do not cache this!
 	 */
 	const char *text;
+
+	/**
+	 * Returns the same data as a node core with owner tree id == 0. This is useful when moving data between (different) trees.
+	 *
+	 * As you can see we mostly copy pointers and counters so the data is still the same and owned by whoever owned it earlier.
+	 * However when OwnerTreeId==0 that indicates we do not know the source of the data and the operations on trees that accept
+	 * those versions with zero id are prepared to handle the data with care because of this unknown factor. Using node data that
+	 * is returned by this function when operating with a tree tries to ensure data copies - even if the data is from the same tree.
+	 */
+	inline /* ExternalOwnedNodeCore */ NodeCore<0> getExternalOwnedMarked() {
+		// Create externally owned marked data
+		NodeCore ret;
+
+		// Copy pointers and simple data
+		ret.nodeKind = nodeKind;
+		ret.data = data;
+		ret.name = name;
+		ret.text = text;
+
+		// Return - hopefully optimized out easily by compiler
+		return ret;
+	}
 };
+
+// Simple type alias for the node core type that does not hold information about who owns it.
+using ExternalOwnedNodeCore = NodeCore<0>;
 
 } // end of namespace tbuf
 

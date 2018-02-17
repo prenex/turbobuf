@@ -36,7 +36,7 @@ void testTbuf(){
 	// Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");
 	// The second parameter means we are using crazy optimizations
-	tbuf::Tree fruit(fin, true);
+	tbuf::Tree<1> fruit(fin, true);
 
 	printf("%s(%u)\n", fruit.root.core.name, fruit.root.core.data.asUint());
 	printf("	%s(%u)\n", fruit.root.children[0].core.name, fruit.root.children[0].core.data.asUint());
@@ -52,7 +52,7 @@ void testTbuf(){
 				tbuf::LevelDescender("ketto"),
 				tbuf::LevelDescender("harom"),
 			},
-			[&fetchTestOk] (tbuf::NodeCore &nc) {
+			[&fetchTestOk] (tbuf::ExternalOwnedNodeCore &nc) {
 				printf("Found node with data: %u\n", nc.data.asUint());
 				++fetchTestOk; // we should have found this...
 			});
@@ -62,13 +62,13 @@ void testTbuf(){
 				tbuf::LevelDescender("ketto"),
 				tbuf::LevelDescender("harom"),
 			},
-			[&fetchTestOk] (tbuf::NodeCore &nc) {
+			[&fetchTestOk] (tbuf::ExternalOwnedNodeCore &nc) {
 				printf("Found node with data: %u\n", nc.data.asUint());
 				++fetchTestOk; // we should have found this...
 			});
 	tbuf::TreeQuery::fetch(fruit.root,
 			{"hololo", tbuf::SYM_STRING_NODE_STR},
-			[&fetchTestOk] (tbuf::NodeCore &nc) {
+			[&fetchTestOk] (tbuf::ExternalOwnedNodeCore &nc) {
 				printf("Found node with text: %s\n", nc.text);
 				++fetchTestOk; // we should have found this...
 			});
@@ -80,14 +80,14 @@ void testTbuf(){
 				// and descending into its text node
 				tbuf::LevelDescender(tbuf::SYM_STRING_NODE_STR, 0, true),
 			},
-			[&fetchTestOk] (tbuf::NodeCore &nc) {
+			[&fetchTestOk] (tbuf::ExternalOwnedNodeCore &nc) {
 				// should print out "pi" as text:
 				printf("Found node with text: %s\n", nc.text);
 				++fetchTestOk; // we should have found this...
 			});
 	tbuf::TreeQuery::fetch(fruit.root,
 			{"notexistent", tbuf::SYM_STRING_NODE_CLASS_STR},
-			[&fetchTestOk] (tbuf::NodeCore &nc) {
+			[&fetchTestOk] (tbuf::ExternalOwnedNodeCore &nc) {
 				// Nothing should get printed here: 
 				printf("FIXME: either test input or code is broken! %s\n", nc.text);
 				--fetchTestOk; // we should have not found this...
@@ -101,7 +101,7 @@ void testTbuf(){
 
 	// Pretty-print the tree using dfs
 	printf("Custom pretty-printing of the tree and testing DFS:\n");
-	fruit.root.dfs_preorder([] (tbuf::NodeCore& nc, unsigned int depth, bool leaf){
+	fruit.root.dfs_preorder([] (tbuf::ExternalOwnedNodeCore& nc, unsigned int depth, bool leaf){
 			// Indentation
 			for(unsigned int i = 0; i < depth; ++i) {
 				printf("\t");

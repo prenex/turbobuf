@@ -76,28 +76,34 @@ struct LevelDescender {
 
 /**
  * The turbo-buf tree node that might be enchanced with traversal, caching or optimization informations for operations.
- * These are what the trees are built out of. Handled through the tree and memory is owned by the tree!!!
+ * These are what the trees are built out of. Handled through the tree and memory is owned by the tree - except for TreeId == 0!
+ *
+ * The owner tree id is useful for clear static, compilation time definition of ownership for the data in the node.
+ * If this is zero, the data is owned by user code outside of tbuf (not a result of parsing a file / memory, not a copy of a node etc).
+ *
+ * When you instantiate trees, you can give this template parameter to identify each tree differently
  */
+template <unsigned int OwnerTreeId = 0>
 struct Node {
 	/** Contains the core-data of this node */
-	NodeCore core;
+	NodeCore<OwnerTreeId> core;
 
 	/**
 	 * Points to our parent - can be nullptr for implicit root nodes
 	 * - MEMORY IS OWNED BY THE TREE! Do not cache this!
 	 */
-	Node* parent;
+	Node<OwnerTreeId>* parent;
 
 	/** The child nodes (if any). Handled by the tree */
-	std::vector<Node> children;
+	std::vector<Node<OwnerTreeId>> children;
 
 	// TODO: Implement per-node hashing for going down the next level based of the name and simple lookup...
 	// TODO: Maybe implement some kind of caching or handle prefix-queries efficiently etc...
 	
 	/** Descend into one of our children designated by the given level descender (or return nullptr if not available) */
-	inline Node* descend(LevelDescender ld) {
+	inline Node<OwnerTreeId>* descend(LevelDescender ld) {
 		int foundIndex = -1;
-		for(Node &child : children) {
+		for(Node<OwnerTreeId> &child : children) {
 #ifdef DEBUG_LOG
 printf(" -- Trying child with name:%s against target name: %s\n", child.core.name, ld.targetName.c_str());
 #endif
@@ -135,12 +141,12 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 	}
 
 	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is preorder. */
-	inline void dfs_preorder(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor) {
+	inline void dfs_preorder(std::function<void (NodeCore<OwnerTreeId> &node, unsigned int depth, bool leaf)> visitor) {
 		dfs_preorder_impl(visitor, 0);
 	}
 
 	/** A depth-first searching on the sub-tree from this node by visiging all nodes with the given visitor. Ordering is postorder. */
-	inline void dfs_postorder(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor) {
+	inline void dfs_postorder(std::function<void (NodeCore<OwnerTreeId> &node, unsigned int depth, bool leaf)> visitor) {
 		dfs_postorder_impl(visitor, 0);
 	}
 
@@ -161,7 +167,8 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 		// Write out using a simple DFS - this do everything except closing the last few '}' chars (because calls end)
 		// Rem.: prettyPrint and destFile (ptr) can be just a capture by copy,
 		//       but the lastWoDepth needs to be changed by the lambda!!!
-		this->dfs_preorder([prettyPrint, destFile, &lastWoDepth, &lastBits](tbuf::NodeCore& nc, unsigned int depth, bool leaf){
+		this->dfs_preorder([prettyPrint, destFile, &lastWoDepth, &lastBits]
+				(tbuf::NodeCore<OwnerTreeId>& nc, unsigned int depth, bool leaf){
 			// Possibly close earlier node (see that this handles root properly too!)
 			// - If the last call was to a leaf, do not do anything however as we close leaves always on the same line!!!
 			if((lastBits & LEAF_BIT) == 0) {
@@ -256,7 +263,8 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 
 private:
 	// Recursive dfs for preorder
-	inline void dfs_preorder_impl(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
+	inline void dfs_preorder_impl(
+			std::function<void (NodeCore<OwnerTreeId> &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
 		// Visit
 		visitor(this->core, depth, this->children.size() == 0);
 		// recurse
@@ -265,7 +273,8 @@ private:
 		}
 	}
 	// Recursive dfs for postorder
-	inline void dfs_postorder_impl(std::function<void (NodeCore &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
+	inline void dfs_postorder_impl(
+			std::function<void (NodeCore<OwnerTreeId> &node, unsigned int depth, bool leaf)> visitor, unsigned int depth) {
 		// recurse
 		for(int i = 0; i < this->children.size(); ++i) {
 			children[i].dfs_preorder_impl(visitor, depth + 1);
@@ -296,11 +305,14 @@ public:
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
-	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (NodeCore &found)> visitor) {
+	template<unsigned int OwnerTreeId>
+	inline static void fetch(Node<OwnerTreeId> &root, std::initializer_list<const char*> tPath,
+			std::function<void (ExternalOwnedNodeCore &found)> visitor) {
 		// Just do the usual call and grab the core from it
 		// simple lambda also shows usage as an example.
-		fetch(root, tPath, [&visitor] (Node &visited) {
-			visitor(visited.core);
+		fetch(root, tPath, [&visitor] (Node<OwnerTreeId> &visited) {
+			// We need to return the data as externally owned to aid processing here!
+			visitor(visited.core.getExternalOwnedMarked());
 		});
 	}
 
@@ -314,7 +326,9 @@ public:
 	 * function that is called when we use the tquery language with only one const char* param and use the '/'
 	 * separator between the levels.
 	 */
-	inline static void fetch(Node &root, std::initializer_list<const char*> tPath, std::function<void (Node &found)> visitor) {
+	template<unsigned int OwnerTreeId>
+	inline static void fetch(Node<OwnerTreeId> &root, std::initializer_list<const char*> tPath,
+			std::function<void (Node<OwnerTreeId> &found)> visitor) {
 		// Create descenders out of the cstr for each level
 		std::vector<LevelDescender> descenders;
 		for(const char *pathElem : tPath) {
@@ -333,11 +347,14 @@ printf("fetch(...) cstr->descender conversion pathElem: %s\n", pathElem);
 	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
 	 * function that is called by the other - more user friendly cases too.
 	 */
-	inline static void fetch(Node &root, std::vector<LevelDescender> tPath, std::function<void (NodeCore &found)> visitor) {
+	template<unsigned int OwnerTreeId>
+	inline static void fetch(Node<OwnerTreeId> &root, std::vector<LevelDescender> tPath,
+			std::function<void (ExternalOwnedNodeCore &found)> visitor) {
 		// Just do the usual call and grab the core from it
 		// simple lambda also shows usage as an example.
-		fetch(root, tPath, [&visitor] (Node &visited) {
-			visitor(visited.core);
+		fetch(root, tPath, [&visitor] (Node<OwnerTreeId> &visited) {
+			// We need to return the data as externally owned to aid processing here!
+			visitor(visited.core.getExternalOwnedMarked());
 		});
 	}
 
@@ -350,8 +367,10 @@ printf("fetch(...) cstr->descender conversion pathElem: %s\n", pathElem);
 	 * is handled by one element in the second (initializer list of const char*) parameter. Basically this is the
 	 * function that is called by the other - more user friendly cases too.
 	 */
-	inline static void fetch(Node &root, std::vector<LevelDescender> tPath, std::function<void (Node &found)> visitor) {
-		Node *currentHead = &root;
+	template<unsigned int OwnerTreeId>
+	inline static void fetch(Node<OwnerTreeId> &root, std::vector<LevelDescender> tPath,
+			std::function<void (Node<OwnerTreeId> &found)> visitor) {
+		Node<OwnerTreeId> *currentHead = &root;
 		for(int i = 0; i < tPath.size(); ++i) {
 			// Try descending and update current head with that
 			currentHead = currentHead->descend(tPath[i]);
@@ -367,6 +386,8 @@ printf("fetch(...) cstr->descender conversion pathElem: %s\n", pathElem);
 	}
 };
 
+/** The tree - that both represents a node structure and usually owns its nodes. Also has a tree id for explicit ownership uuid */
+template<unsigned int TreeId>
 class Tree {
 public:
 	/** Name for implicit root nodes */
@@ -374,20 +395,21 @@ public:
 	//const char *textNodeName = "$"; // This name is special. We use this directly instead of pointing into the buffers...
 
 	/** The root node for this tree */
-	Node root;
+	Node<TreeId> root;
 
 	/**
 	 * Creates and empty tree with a root node that has no children and no data.
 	 */
 	Tree() {
 		// Empty input file, return empty root
-		root = Node{NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
+		root = Node<TreeId>{NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr,
+			std::vector<Node<TreeId>>()};
 	}
 	
 	/**
 	 * Create tree by parsing input.
 	 * Might take ownership of data structures of the "input" so that we can parse with optimizations in case
-	 * canReferMemoryFromInputLater is set as true. In that case you should really beware that the life-cycle 
+	 * canReferMemoryFromInput is set as true. In that case you should really beware that the life-cycle 
 	 * of input should be longer than the life-cycle of this object otherwise corrupted strings might get to
 	 * be returned from this tree later! If you set that parameter to be true, everything is a little bit
 	 * faster as we are not using that much dynamic memory...
@@ -405,17 +427,26 @@ public:
 		// Check if we have any input to parse
 		if(input.grabCurr() == EOF) {
 			// Empty input file, return empty root
-			root = Node{NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, std::vector<Node>()};
+			root = Node<TreeId>{NodeKind::ROOT, Hexes{fio::LenString{0,nullptr}}, rootNodeName, nullptr, nullptr, 
+				std::vector<Node<TreeId>>()};
 		} else {
 			// Properly parse the whole input as a tree
 			// Parse hexes for the root node
 			Hexes rootHexes = parseHexes(input);
 			// Create the root node with empty child lists
-			root = Node {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, std::vector<Node>()};
+			root = Node<TreeId> {NodeKind::ROOT, rootHexes, rootNodeName, nullptr, nullptr, 
+				std::vector<Node<TreeId>>()};
 			// Fill-in the children while parsing nodes with tree-walking
 			parseNodes(input, root, canReferMemoryFromInput, ignoreWhiteSpace);
 		}
 	}
+
+	/* TODO: functions for adding child nodes / deleting nodes */
+	/*
+	Node& addChildToParentWithData(Node *parent, NodeKind ) {
+		TODO
+	}
+	*/
 private:
 	/**
 	 * Those strings go here that we are not able to fetch in an optimized way out of the input handler's memory.
@@ -446,10 +477,10 @@ private:
 
 	/** Parse all child nodes of the root after parsing hexes of root */
 	template<class InputSubClass>
-	inline void parseNodes(InputSubClass &input, Node &parent, bool canReferMemoryFromInput, bool ignoreWhiteSpace){
+	inline void parseNodes(InputSubClass &input, Node<TreeId> &parent, bool canReferMemoryFromInput, bool ignoreWhiteSpace){
 		// Parse from the very start point after the hexes of the root!
 		// (Non-recursive tree-walking in a depth first approach)
-		Node* currentParent = &parent;
+		Node<TreeId>* currentParent = &parent;
 		while(nullptr != (currentParent = parseNode(input, currentParent, canReferMemoryFromInput, ignoreWhiteSpace)));
 	}
 
@@ -460,7 +491,7 @@ private:
 	 * the parent of the parent if we see that have gotten the parents closing parentheses...
 	 */
 	template<class InputSubClass>
-	inline Node* parseNode(InputSubClass &input, Node *parent, bool useOptimizedButHackyStringReferences,bool ignoreWhiteSpace) {
+	inline Node<TreeId>* parseNode(InputSubClass &input, Node<TreeId> *parent, bool useOptimizedButHackyStringReferences,bool ignoreWhiteSpace) {
 		// Sanity check
 		if(parent == nullptr) {
 			return nullptr;
@@ -579,13 +610,13 @@ printf("(!) text-node content is: %s below %s(%u)\n", text, parent->core.name, (
 #endif
 
 			// Add this new node as our children to the parent
-			parent->children.push_back(Node{
+			parent->children.push_back(Node<TreeId>{
 					NodeKind::TEXT,
 					Hexes {},
 					textNodeName,
 					text,
 					parent,
-					std::vector<Node> {}
+					std::vector<Node<TreeId>> {}
 			});
 
 			// Advance over the '}' closing char
@@ -696,13 +727,13 @@ printf("(!) Found non-empty sub-node with name: %s below %s(%u)\n", nodeName, pa
 				// child of the current parent and returned so that
 				// childrens can be read up. If this node is completely
 				// empty (like: node{}) this still works the same way!
-				parent->children.push_back(Node{
+				parent->children.push_back(Node<TreeId>{
 						NodeKind::NORM, // normal node type
 						std::move(parseHexes(input)), // inline hexes...
 						nodeName, // set the parsed node name
 						nullptr, // not a text node
 						parent,	// set parent node
-						std::vector<Node> {}	// start with empty children - will collect them later!
+						std::vector<Node<TreeId>> {}	// start with empty children - will collect them later!
 				});
 
 				// Return the node we just added
@@ -720,13 +751,13 @@ printf("(!) Found an empty-leaf sub-node with name: %s below %s(%u)\n", nodeName
 				// child of the current parent and returned so that
 				// childrens can be read up. If this node is completely
 				// empty (like: node{}) this still works the same way!
-				parent->children.push_back(Node{
+				parent->children.push_back(Node<TreeId>{
 						NodeKind::NORM, // normal node type (just no body and child!)
 						Hexes::EMPTY_HEXES(), // empty hexes
 						nodeName, // set the parsed node name
 						nullptr, // not a text node
 						parent,	// set parent node
-						std::vector<Node> {}	// surely no children - never will be any!
+						std::vector<Node<TreeId>> {}	// surely no children - never will be any!
 				});
 				// We can keep the earlier parent as this node was an empty leaf
 				// Further nodes cannot be below an emtpy one of course...
