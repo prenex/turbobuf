@@ -416,6 +416,38 @@ public:
 			parseNodes(input, root, canReferMemoryFromInput, ignoreWhiteSpace);
 		}
 	}
+
+	/**
+	 * Adds a text node to the tree below the given parent - adding the new child as the latest child insert point.
+	 *
+	 * The text parameter describes the content and the optional name describes if $_name is used or just "$" alone!
+	 */
+	inline Node& addTextNode(Node &parent, const std::string &text, const std::string &name = "") {
+
+		// Create the main node-data (NodeCore) that is surely having the "TEXT" kind now
+		NodeCore nc;
+		nc.nodeKind = NodeKind::TEXT;
+		// The name of the node is "$" by default.
+		const char *fullName = SYM_STRING_NODE_STR;
+		if(name.length() > 0) {
+			// Otherwise it is of the form: "$_aUserDefinedName"
+			// So we need to add to or lookup string from the treeStrings set
+			auto iName = treeStrings.insert(SYM_STRING_NODE_CLASS_STR+name);
+			// Refer to this data then (which has tree-bound lifetime)
+			fullName = (*(iName.first)).c_str();
+		}
+		nc.name = fullName;
+		// Try adding the text for the node - this also looks up earlier data!
+		// Rem.: This ensures there are duplicate data stored except when there are data from first parse c_strs!
+		//       That is the latter are not in the treeStrings set because they are still in the morphed input!
+		//       (It would take too long to look with linear search in the memory or the tree for char* strings)
+		auto iText = treeStrings.insert(text); // iterator for the "text" std::string
+		nc.text = (*(iText.first)).c_str();
+
+		// Add a new node below the parent - with the given NodeCore data and pointer to the given parent and no initial children.
+		// Rem.: takint address of parent migth be nothing if it is already a reference - if its not things are faster anyways...
+		parent.children.push_back(std::move(Node{nc, &parent, std::vector<Node>()}));
+	}
 private:
 	/**
 	 * Those strings go here that we are not able to fetch in an optimized way out of the input handler's memory.

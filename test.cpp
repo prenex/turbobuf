@@ -126,5 +126,11 @@ void testTbuf(){
 	printf("Test writeOut - dense printing:\n");
 	fruit.root.writeOut(stdout, false);
 
+	printf("Test node addition...\n");
+	fruit.addTextNode(fruit.root, "Runtime-added test data 1");
+	fruit.addTextNode(fruit.root, "Runtime-added test data 2", "test2");
+	printf("Test writeOut - after node additions (pretty-printing):\n");
+	fruit.root.writeOut();
+
 	printf("End of testing\n");
 }

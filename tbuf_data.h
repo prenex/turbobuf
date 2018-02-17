@@ -97,6 +97,7 @@ enum class NodeKind {
  * This is what the user should see when he is providing callbacks to walk over the tree or get data.
  */
 struct NodeCore {
+public:
 	/** Defines the kind of this node */
 	NodeKind nodeKind;
 	/**
