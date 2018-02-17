@@ -46,7 +46,7 @@ struct LenString {
 	 * that you ignore escaped closing characters while accumulating characters
 	 * this could be really handy!
 	 */
-	inline void dangerous_destructive_unsafe_escape_in_place(char escapeChar) {
+	inline void dangerous_destructive_unsafe_unescape_in_place(char escapeChar) {
 		bool escaped = false;	// true right after an escape char
 		int i; // i - Read head; j<=i. Always step incrementally and move through the array of chars
 		int j; // j - Write head: just go over the array. Step like i, but in case of escapes step back too
@@ -68,6 +68,46 @@ struct LenString {
 		}
 		// Add the new zero terminator!
 		startPtr[j] = 0;
+	}
+
+	/**
+	 * Escape simply by eliminating escape-characters. This is a dumb operation that basically
+	 * just removes the _FIRST_ escape character. If the escape char is '\' then:
+	 * -- "\\" becomes "\",0
+	 * -- "al\ma" becomes "alma",0
+	 * -- "\\\" becomes "\",0,'\'
+	 * -- "\\\\" becomes "\\",0,'\'
+	 * -- "al\\\ma" becomes "al\ma",0,'a'
+	 *
+	 * Basically what the escaping is doing is that every character after the
+	 * escapeChar need to be taken literally. If you are parsing in that way
+	 * that you ignore escaped closing characters while accumulating characters
+	 * this could be really handy!
+	 */
+	inline static std::string safe_unescape(char escapeChar, std::string src) {
+		// Create a big-enough string, padded with zeroes (the result can be only this big or smaller)
+		std::string ret(src.length(), (char)0);
+		bool escaped = false;	// true right after an escape char
+		int i; // i - Read head; j<=i. Always step incrementally and move through the string
+		int j; // j - Write head: just go over the string. Step like i, but in case of escapes step back too
+		for(i = 0, j = 0; (i < src.length()) && (j < src.length()); ++i, ++j) {
+			char current = src[i];
+			if(escaped || (escapeChar != current)) {
+				// Normal character, or escaped escape char - just copy to write head
+				ret[j] = current;
+				// Escaping will stop if there was any
+				escaped = false;
+			} else {
+				// Unescaped escape character
+				escaped = true;
+				// This decrementation will make j stay in place!
+				// while not writing anything will miss out this
+				// character from the output completely!
+				--j;
+			}
+		}
+		// Return the created string
+		return ret;
 	}
 
 	/**

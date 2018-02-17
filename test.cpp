@@ -5,6 +5,7 @@
 #include<cstdint>
 #include<cstdio>
 #include<vector>
+#include<string>
 
 // Ensure debug logging is in effect...
 #define DEBUG_LOG 1
@@ -32,6 +33,11 @@ void testTbuf(){
 	char data = fin.grabCurr();
 	// Use data
 	printf("...FileInHandler testing result(in.txt): %c\n", data);
+
+	printf("Testing fio::LenString::safe_unescape(..)\n");
+	std::string testUnescape = "Es\\cape the \\{reality\\}!\\\\\\\\ be 1337!"; // Rem.: Beware! From "///" it would become "/" with esc.
+	std::string unesced = fio::LenString::safe_unescape('\\', testUnescape);
+	printf("%s became: %s\n", testUnescape.c_str(), unesced.c_str());
 
 	// Test some "real" functionality
 	printf("Testing some real tbuf functionality...\n");

@@ -1,6 +1,7 @@
 #ifndef TURBO_BUF_H
 #define TURBO_BUF_H
 
+#include<cassert> /* For assertions #define TBUF_ASSERT */
 #include<memory>
 #include<vector>
 #include<cstdio>
@@ -423,7 +424,6 @@ public:
 	 * The text parameter describes the content and the optional name describes if $_name is used or just "$" alone!
 	 */
 	inline Node& addTextNode(Node &parent, const std::string &text, const std::string &name = "") {
-
 		// Create the main node-data (NodeCore) that is surely having the "TEXT" kind now
 		NodeCore nc;
 		nc.nodeKind = NodeKind::TEXT;
@@ -447,6 +447,28 @@ public:
 		// Add a new node below the parent - with the given NodeCore data and pointer to the given parent and no initial children.
 		// Rem.: takint address of parent migth be nothing if it is already a reference - if its not things are faster anyways...
 		parent.children.push_back(std::move(Node{nc, &parent, std::vector<Node>()}));
+	}
+
+	/**
+	 * Adds a normal data node to the tree below the given parent - adding the new child as the latest child insert point.
+	 *
+	 * Data should contain uppercase [0..9A..F] characters only! Name is necessary in this case and cannot be an empty string!
+	 */
+	inline Node& addNormalNode(Node &parent, const std::string &data, const std::string &name) {
+#ifdef TBUF_ASSERT
+		// Ensure preconditions
+		// name must be non-empty
+		assert(name.length() > 0);
+#endif
+
+		// Create the main node-data (NodeCore) that is surely having the "NORM" kind now
+		NodeCore nc;
+		nc.nodeKind = NodeKind::NORM;
+
+		nc.data = Hexes::EMPTY_HEXES();
+		if(data.length() > 0) {
+			// TODO
+		}
 	}
 private:
 	/**
@@ -592,7 +614,7 @@ printf("(..) Found text-node with name: %s below %s(%u)\n", textNodeName, parent
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
 				// Support escaping - at least for the '}' character
-				content.dangerous_destructive_unsafe_escape_in_place(SYM_ESCAPE);
+				content.dangerous_destructive_unsafe_unescape_in_place(SYM_ESCAPE);
 			} else {
 				// FIXME: Support escaping - at least for the '}' character
 				fprintf(stderr, "FIXME: should support escaping here too!!!");
