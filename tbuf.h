@@ -24,7 +24,7 @@ const char SYM_STRING_NODE = '$';
 const char SYM_OPEN_NODE = '{';
 const char SYM_CLOSE_NODE = '}';
 const char SYM_ESCAPE = '\\';	// The "\" is used for escaping in string nodes
-const char SYM_COMMENT = '#';	// Comment until the end of line
+const char SYM_COMMENT = '#';	// Comment until the end of line in tbuf files
 
 const char *SYM_STRING_NODE_CLASS_STR = "$_"; // Any $ and $_something nodes!
 const char *SYM_STRING_NODE_STR = "$";
@@ -613,15 +613,14 @@ printf("(..) Found text-node with name: %s below %s(%u)\n", textNodeName, parent
 			if(useOptimizedButHackyStringReferences && input.isSupportingDangerousDestructiveOperations()) {
 				// Create null terminated c_str from the LenString
 				text = content.dangerous_destructive_unsafe_get_zeroterminator_added_cstr();
-				// Support escaping - at least for the '}' character
+				// Support escaping - at least for the '}' character. We need unescaping here...
 				content.dangerous_destructive_unsafe_unescape_in_place(SYM_ESCAPE);
 			} else {
-				// FIXME: Support escaping - at least for the '}' character
-				fprintf(stderr, "FIXME: should support escaping here too!!!");
 				// Create std::string from the LenString and
 				// store it in the local set of strings we have in the tree.
 				// This way the tree owns these copies as it should be.
-				treeStrings.insert(content.get_str());
+				// Rem.: unescaping is necssary here too!
+				treeStrings.insert(fio::LenString::safe_unescape(SYM_ESCAPE, content.get_str()));
 				// (!) We need finding this string and setting the pointer to it
 				// if I would just set the pointer to an other get_str that
 				// would be invalid. We store the std::strings only so that
