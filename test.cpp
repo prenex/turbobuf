@@ -7,8 +7,9 @@
 #include<vector>
 #include<string>
 
-// Ensure debug logging is in effect...
-#define DEBUG_LOG 1
+// Ensure debug configuration for development
+#define DEBUG_LOG 1	/* There are some detailed logs that happen to show only if this is set */
+#define TBUF_ASSERT 1	/* There are some assertions we better use for development time */
 
 #include"tbuf.h"
 #include"fio.h"
@@ -135,6 +136,8 @@ void testTbuf(){
 	printf("Test node addition...\n");
 	fruit.addTextNode(fruit.root, "Runtime-added test data 1");
 	fruit.addTextNode(fruit.root, "Runtime-added test data 2", "test2");
+	fruit.addNormalNode(fruit.root, "FFAA0013", "test3");
+	fruit.addNormalNode(fruit.root, "FFAA0014", "test4");
 	printf("Test writeOut - after node additions (pretty-printing):\n");
 	fruit.root.writeOut();
 

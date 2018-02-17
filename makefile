@@ -6,3 +6,5 @@ all:
 	g++ --std=c++14 -g test.cpp -o test.out
 clean:
 	rm -f *.o test.out
+valgrind:
+	valgrind --leak-check=full --show-leak-kinds=all ./test.out

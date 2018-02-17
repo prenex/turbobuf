@@ -210,12 +210,12 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 				// - because that is the shortest representation and also makes sense on prettyPrint==true!
 				// Rem.: Many times these empty-data leaves act semantically as "words" so it makes semantic sense too!
 				//       Words (like forth words and such) don't used to have any '{' and '}' parentheses didn't they?
-				bool needOpener = !((nc.text == nullptr) && (nc.data.isEmpty()) && leaf);
+				bool needOpener = !((nc.nodeKind != NodeKind::TEXT) && (nc.data.isEmpty()) && leaf);
 				if(needOpener) {
 					fprintf(destFile, "{");
 				}
 			}
-			if(nc.text == nullptr) {
+			if(nc.nodeKind != NodeKind::TEXT) {
 				// Normal node - show data as uint
 				// (if there is any data)
 				if(!nc.data.isEmpty()) {
@@ -229,7 +229,12 @@ printf(" -- Trying child with name:%s against target name: %s\n", child.core.nam
 
 			// Indicate stuff from this run (so the next callback nows)
 			lastBits = leaf ? LEAF_BIT : CLEAR_BITS; // Set leafness for the next one
-			if((nc.text == nullptr) && (nc.data.isEmpty())) lastBits += EMPTY_DATA_BIT;
+			// Rem.: kind checks are necessary here because we cannot know what is stored in the pointers
+			//       otherwise! These are just plain structs with no constructor and uninitialized data!
+			if(((nc.nodeKind != NodeKind::TEXT) || (nc.text == nullptr)) &&
+			   (((nc.nodeKind != NodeKind::NORM) && (nc.nodeKind != NodeKind::ROOT)) || (nc.data.isEmpty()))){
+				lastBits += EMPTY_DATA_BIT;
+			}
 		});
 
 		// We need to do this here to close the still opened nodes with extra '}' chars!
@@ -393,7 +398,7 @@ public:
 	 * be returned from this tree later! If you set that parameter to be true, everything is a little bit
 	 * faster as we are not using that much dynamic memory...
 	 */
-	// TODO: This is not so clean, why not own input when canReferMemoryFromInput is true? Should refactor!
+	// TODO: This is not so clean, why not own input when canReferMemoryFromInput is true? Should refactor!?
 	template<class InputSubClass>
 	Tree(InputSubClass &input, bool canReferMemoryFromInput = false, bool ignoreWhiteSpace = true) {
 		// These are only here to ensure type safety
@@ -447,6 +452,8 @@ public:
 		// Add a new node below the parent - with the given NodeCore data and pointer to the given parent and no initial children.
 		// Rem.: takint address of parent migth be nothing if it is already a reference - if its not things are faster anyways...
 		parent.children.push_back(std::move(Node{nc, &parent, std::vector<Node>()}));
+
+		return parent.children[parent.children.size() - 1];
 	}
 
 	/**
@@ -457,18 +464,46 @@ public:
 	inline Node& addNormalNode(Node &parent, const std::string &data, const std::string &name) {
 #ifdef TBUF_ASSERT
 		// Ensure preconditions
-		// name must be non-empty
+		// The name must be non-empty
 		assert(name.length() > 0);
+		// The data must be always a hex character
+		for(int i = 0; i < data.length(); ++i) {
+			assert(Hexes::isHexCharacter(data[i]));
+		}
 #endif
 
 		// Create the main node-data (NodeCore) that is surely having the "NORM" kind now
 		NodeCore nc;
 		nc.nodeKind = NodeKind::NORM;
-
+		// Gather DATA
 		nc.data = Hexes::EMPTY_HEXES();
 		if(data.length() > 0) {
-			// TODO
+			// See if we can look up or insert the data as a string
+			auto iData = treeStrings.insert(data);
+			// Get the length and a pointer properly from the stored string
+			// Rem.: Bad conversion is a must here sadly - but it is the only way...
+			char* digitStr = (char*)(iData.first->c_str());
+			fio::LenString digits = {iData.first->length(), digitStr};
+			nc.data = Hexes{digits};
+			printf("ASDFASDF: %s\n", nc.data.digits.startPtr);
 		}
+		// Set NAME
+		const char *fullName = "missing_node_name"; // This should never show up...
+		if(name.length() > 0) {
+			// Otherwise it is of the form: "$_aUserDefinedName"
+			// So we need to add to or lookup string from the treeStrings set
+			auto iName = treeStrings.insert(name);
+			// Refer to this data then (which has tree-bound lifetime)
+			fullName = (*(iName.first)).c_str();
+		}
+		nc.name = fullName;
+		printf("ASDFASDF: %s\n", nc.data.digits.startPtr);
+
+		// Add a new node below the parent - with the given NodeCore data and pointer to the given parent and no initial children.
+		// Rem.: takint address of parent migth be nothing if it is already a reference - if its not things are faster anyways...
+		parent.children.push_back(std::move(Node{nc, &parent, std::vector<Node>()}));
+
+		return parent.children[parent.children.size() - 1];
 	}
 private:
 	/**

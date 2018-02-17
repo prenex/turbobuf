@@ -185,7 +185,7 @@ public:
 
 	~FastInput() {
 		if(buffer != nullptr && ownsBuffer) {
-			delete buffer;
+			delete[] buffer;
 		}
 	}
 };
