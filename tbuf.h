@@ -424,6 +424,31 @@ public:
 	}
 
 	/**
+	 * Adds a duplicate of the given source node below the specified parent. The src should come from the same tree!
+	 *
+	 * NodeContent will be shared between the source and the new node after this operation!
+	 */
+	inline Node& addDuplicate(Node &parent, Node &src) {
+#ifdef TBUF_ASSERT
+		// Ensure that the parent can have children (not a text node)
+		assert(parent.core.nodeKind != NodeKind::TEXT);
+		// Ensure that our tree root is on the same tree as the src
+		// loop to find the root of src...
+		Node* ptr = &src;
+		while(ptr->core.nodeKind != NodeKind::ROOT) {
+			ptr = ptr->parent;
+		}
+		// and then assert it is our root too!
+		assert(ptr == &root);
+#endif
+		// Add by setting parent and empty children
+		// and of course the very same shared NodeContent data from src
+		parent.children.push_back(std::move(Node{src.core, &parent, std::vector<Node>()}));
+
+		return parent.children[parent.children.size() - 1];
+	}
+
+	/**
 	 * Adds a text node to the tree below the given parent - adding the new child as the latest child insert point.
 	 *
 	 * The text parameter describes the content and the optional name describes if $_name is used or just "$" alone!
@@ -485,7 +510,6 @@ public:
 			char* digitStr = (char*)(iData.first->c_str());
 			fio::LenString digits = {iData.first->length(), digitStr};
 			nc.data = Hexes{digits};
-			printf("ASDFASDF: %s\n", nc.data.digits.startPtr);
 		}
 		// Set NAME
 		const char *fullName = "missing_node_name"; // This should never show up...
@@ -497,7 +521,6 @@ public:
 			fullName = (*(iName.first)).c_str();
 		}
 		nc.name = fullName;
-		printf("ASDFASDF: %s\n", nc.data.digits.startPtr);
 
 		// Add a new node below the parent - with the given NodeCore data and pointer to the given parent and no initial children.
 		// Rem.: takint address of parent migth be nothing if it is already a reference - if its not things are faster anyways...

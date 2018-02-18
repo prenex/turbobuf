@@ -134,10 +134,18 @@ void testTbuf(){
 	fruit.root.writeOut(stdout, false);
 
 	printf("Test node addition...\n");
-	fruit.addTextNode(fruit.root, "Runtime-added test data 1");
+	tbuf::Node& text1 = fruit.addTextNode(fruit.root, "Runtime-added test data 1");
 	fruit.addTextNode(fruit.root, "Runtime-added test data 2", "test2");
-	fruit.addNormalNode(fruit.root, "FFAA0013", "test3");
 	fruit.addNormalNode(fruit.root, "FFAA0014", "test4");
+	fruit.addDuplicate(fruit.root, text1);
+	tbuf::Node& data1 = fruit.addNormalNode(fruit.root, "FFAA0013", "test3");
+	// This would not work instead of the above as auto will be Node and not Node& sadly!!!
+	// This can cause havok and mayhem if one does not know so some test code is added below uncommented.
+	//auto data1 = fruit.addNormalNode(fruit.root, "FFAA0013", "test3");
+	fruit.addDuplicate(data1, text1);
+	//printf("data1.children.size(): %d\n", data1.children.size());
+	//tbuf::Node& lastChild = fruit.root.children[fruit.root.children.size()-1];
+	printf("root.lastChild(%s).children.size(): %d\n", lastChild.core.name, lastChild.children.size());
 	printf("Test writeOut - after node additions (pretty-printing):\n");
 	fruit.root.writeOut();
 
